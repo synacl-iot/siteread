@@ -1,0 +1,37 @@
+{
+  "name": "whofetched",
+  "version": "0.1.0",
+  "description": "Is that crawler who it says it is? Checks an IP + User-Agent against the AI and search vendors' published IP lists. Zero dependencies.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "whofetched": "./bin/whofetched.js"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "crawler",
+    "bot",
+    "verification",
+    "gptbot",
+    "claudebot",
+    "chatgpt-user",
+    "googlebot",
+    "user-agent",
+    "ip-ranges",
+    "access-log"
+  ],
+  "license": "MIT"
+}

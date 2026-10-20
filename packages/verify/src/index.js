@@ -1,0 +1,10 @@
+// whofetched: is that crawler who it says it is? Vendor IP lists + a User-Agent table +
+// scanner-path signatures, with zero dependencies. See README.md.
+
+export { AGENTS, CRAWLERS, detectAgent, detectCrawler, isSearchCrawler } from './agents.js';
+export { SCANNER_PATH_RE, isScannerPath } from './scanner.js';
+export {
+    SOURCES, parseCidr, parseList, normIp,
+    REFRESH_AFTER_MS, DROP_AFTER_MS, MIN_PREFIX, MAX_PREFIXES, MAX_BODY_CHARS,
+} from './ip-ranges.js';
+export { VERSION } from './version.js';
