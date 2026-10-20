@@ -7,4 +7,6 @@ export {
     SOURCES, parseCidr, parseList, normIp,
     REFRESH_AFTER_MS, DROP_AFTER_MS, MIN_PREFIX, MAX_PREFIXES, MAX_BODY_CHARS,
 } from './ip-ranges.js';
+export { createVerifier, memoryStore } from './verifier.js';
+export { fileStore } from './file-store.js';
 export { VERSION } from './version.js';
