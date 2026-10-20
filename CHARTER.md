@@ -43,7 +43,7 @@ Default until the owner sets it: **4 h owner time + one agent session (~half a d
 
 | Week | Spent | What |
 |---|---|---|
-| 2026-W43 | charter + skeleton + phase 1 started | this file; verify package extraction |
+| 2026-W43 | one agent session (~15 min wall, 38 tool calls) + owner's design discussion | charter, skeleton, **phase 1 done**: `packages/verify` 42 tests, CLI verified live |
 
 ## Owner decisions pending
 
