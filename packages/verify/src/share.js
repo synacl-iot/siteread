@@ -38,7 +38,13 @@ export const SHARE_METRICS = Object.freeze({
     gscPosition:         { int: false, min: 1, max: 1000, lowerIsBetter: true, about: 'Search Console position, impression-weighted (lower is better)' },
 });
 
-const ID_RE = /^[0-9a-f]{32}$/;
+// The `code` a refused share carries (validateShare's own, then the endpoint's).
+export const SHARE_REFUSALS = Object.freeze([
+    'body', 'unknown-field', 'schema', 'id', 'week', 'version', 'unknown-metric', 'metric-value',
+    'content-type', 'too-large', 'not-json', 'future-week', 'old-week', 'new-site-cap',
+]);
+
+export const ID_RE = /^[0-9a-f]{32}$/;
 const WEEK_RE = /^(\d{4})-W(\d{2})$/;
 const VERSION_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}(-[0-9a-z.]{1,20})?$/;
 const KEYS = new Set(['schema', 'id', 'week', 'siteread', 'metrics']);
@@ -155,28 +161,30 @@ export function sharePayload(digest, { id, version = VERSION } = {}) {
 
 /**
  * What the endpoint accepts, nothing more: { ok: true, share } with the metrics in schema order,
- * or { ok: false, error }. It does not know the date: the endpoint checks the week's age itself.
+ * or { ok: false, error, code }. `code` is one of SHARE_REFUSALS, for counting refusals without
+ * keeping the message (which can echo a field name the sender chose). It does not know the
+ * date: the endpoint checks the week's age itself.
  */
 export function validateShare(body) {
-    const bad = error => ({ ok: false, error });
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return bad('the body must be a JSON object');
-    for (const k of Object.keys(body)) if (!KEYS.has(k)) return bad(`unknown field "${k}"`);
-    if (body.schema !== SHARE_SCHEMA) return bad(`schema must be ${SHARE_SCHEMA}`);
-    if (typeof body.id !== 'string' || !ID_RE.test(body.id)) return bad('id must be 32 lowercase hex digits');
-    if (typeof body.week !== 'string' || !Number.isFinite(weekStart(body.week))) return bad('week must be an ISO week like 2026-W42');
-    if (typeof body.siteread !== 'string' || !VERSION_RE.test(body.siteread)) return bad('siteread must be a version like 0.3.0');
+    const bad = (code, error) => ({ ok: false, error, code });
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return bad('body', 'the body must be a JSON object');
+    for (const k of Object.keys(body)) if (!KEYS.has(k)) return bad('unknown-field', `unknown field "${k}"`);
+    if (body.schema !== SHARE_SCHEMA) return bad('schema', `schema must be ${SHARE_SCHEMA}`);
+    if (typeof body.id !== 'string' || !ID_RE.test(body.id)) return bad('id', 'id must be 32 lowercase hex digits');
+    if (typeof body.week !== 'string' || !Number.isFinite(weekStart(body.week))) return bad('week', 'week must be an ISO week like 2026-W42');
+    if (typeof body.siteread !== 'string' || !VERSION_RE.test(body.siteread)) return bad('version', 'siteread must be a version like 0.3.0');
     const m = body.metrics;
-    if (!m || typeof m !== 'object' || Array.isArray(m)) return bad('metrics must be an object');
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return bad('metric-value', 'metrics must be an object');
     const metrics = {};
-    for (const k of Object.keys(m)) if (!Object.hasOwn(SHARE_METRICS, k)) return bad(`unknown metric "${k}"`);
+    for (const k of Object.keys(m)) if (!Object.hasOwn(SHARE_METRICS, k)) return bad('unknown-metric', `unknown metric "${k}"`);
     for (const [k, spec] of Object.entries(SHARE_METRICS)) {
         if (!Object.hasOwn(m, k)) continue;
         const v = m[k];
-        if (typeof v !== 'number' || !Number.isFinite(v)) return bad(`${k} must be a number`);
-        if (spec.int && !Number.isInteger(v)) return bad(`${k} must be a whole number`);
-        if (v < spec.min || v > spec.max) return bad(`${k} must be between ${spec.min} and ${spec.max}`);
+        if (typeof v !== 'number' || !Number.isFinite(v)) return bad('metric-value', `${k} must be a number`);
+        if (spec.int && !Number.isInteger(v)) return bad('metric-value', `${k} must be a whole number`);
+        if (v < spec.min || v > spec.max) return bad('metric-value', `${k} must be between ${spec.min} and ${spec.max}`);
         metrics[k] = v;
     }
-    if (!Object.keys(metrics).length) return bad('metrics is empty');
+    if (!Object.keys(metrics).length) return bad('metric-value', 'metrics is empty');
     return { ok: true, share: { schema: body.schema, id: body.id, week: body.week, siteread: body.siteread, metrics } };
 }

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     digest, parseGoal, createVerifier, memoryStore, SOURCES, parseList,
-    sharePayload, validateShare, isoWeek, weekStart, addWeeks, SHARE_METRICS, VERSION,
+    sharePayload, validateShare, isoWeek, weekStart, addWeeks, SHARE_METRICS, SHARE_REFUSALS, VERSION,
 } from '../src/index.js';
 
 const SITE = fileURLToPath(new URL('./fixtures/site/', import.meta.url));
@@ -161,27 +161,29 @@ test('sharePayload: partial weeks and mismatched weeks are left out and said so'
 test('validateShare: refuses anything not in the schema rather than trimming it', () => {
     const ok = { schema: 1, id: ID, week: '2026-W42', siteread: '0.3.0', metrics: { people: 4, gscCtrPct: 1.3 } };
     assert.deepEqual(validateShare(ok), { ok: true, share: ok });
-    const bad = (patch, re) => {
+    const bad = (patch, re, code) => {
         const r = validateShare({ ...ok, ...patch });
         assert.equal(r.ok, false, JSON.stringify(patch));
         assert.match(r.error, re);
+        assert.equal(r.code, code, JSON.stringify(patch));
+        assert.ok(SHARE_REFUSALS.includes(r.code));
     };
-    bad({ host: 'example.org' }, /unknown field "host"/);
-    bad({ schema: 2 }, /schema/);
-    bad({ id: ID.toUpperCase() }, /id must be/);
-    bad({ week: '2026-W54' }, /week must be/);
-    bad({ week: '2026-10-18' }, /week must be/);
-    bad({ siteread: 'example.org' }, /siteread must be/);
-    bad({ metrics: { people: 4, topPage: 1 } }, /unknown metric "topPage"/);
-    bad({ metrics: { people: '4' } }, /people must be a number/);
-    bad({ metrics: { people: 4.5 } }, /whole number/);
-    bad({ metrics: { people: -1 } }, /between/);
-    bad({ metrics: { gscCtrPct: 101 } }, /between/);
-    bad({ metrics: { gscPosition: 0 } }, /between/);
-    bad({ metrics: { people: Infinity } }, /number/);
-    bad({ metrics: {} }, /empty/);
-    bad({ metrics: [] }, /metrics must be an object/);
-    assert.equal(validateShare(null).ok, false);
+    bad({ host: 'example.org' }, /unknown field "host"/, 'unknown-field');
+    bad({ schema: 2 }, /schema/, 'schema');
+    bad({ id: ID.toUpperCase() }, /id must be/, 'id');
+    bad({ week: '2026-W54' }, /week must be/, 'week');
+    bad({ week: '2026-10-18' }, /week must be/, 'week');
+    bad({ siteread: 'example.org' }, /siteread must be/, 'version');
+    bad({ metrics: { people: 4, topPage: 1 } }, /unknown metric "topPage"/, 'unknown-metric');
+    bad({ metrics: { people: '4' } }, /people must be a number/, 'metric-value');
+    bad({ metrics: { people: 4.5 } }, /whole number/, 'metric-value');
+    bad({ metrics: { people: -1 } }, /between/, 'metric-value');
+    bad({ metrics: { gscCtrPct: 101 } }, /between/, 'metric-value');
+    bad({ metrics: { gscPosition: 0 } }, /between/, 'metric-value');
+    bad({ metrics: { people: Infinity } }, /number/, 'metric-value');
+    bad({ metrics: {} }, /empty/, 'metric-value');
+    bad({ metrics: [] }, /metrics must be an object/, 'metric-value');
+    assert.equal(validateShare(null).code, 'body');
     assert.equal(validateShare([ok]).ok, false);
     // Metrics come back in schema order whatever order they arrived in.
     assert.deepEqual(Object.keys(validateShare({ ...ok, metrics: { gscCtrPct: 1, people: 2 } }).share.metrics), ['people', 'gscCtrPct']);
