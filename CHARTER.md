@@ -40,7 +40,8 @@ Python twin: later, as a thin client of the feed, not a port.
 ## Weekly budget
 
 Set by the owner 2026-10-21: **one day a week, under 6 h, starting after the initial release.** Until
-then the build runs at full pace.
+then the build runs at full pace. The initial release is the whole solution live end to end, cloud
+included: package, skill, list feed, `share` endpoint, aggregate job and the public page.
 
 | Week | Spent | What |
 |---|---|---|

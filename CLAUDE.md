@@ -19,7 +19,8 @@ cap is spent, stop and say so.
   npm `siteread` 0.2.1 and a PyPI `siteread` 0.0.1 placeholder are the owner's publishes. Phase 3 (`cloud/` +
   `site/`) is next; its hosting and the `siteread.dev` DNS are the owner's pick. The name `siteread` is final
   (owner's pick, domain `siteread.dev` bought 2026-10-21); further names stay the owner's call. Repo stays private until the owner says.
-- The weekly cap in `CHARTER.md` starts after the initial release; until then build. Once it applies, it is
+- The weekly cap in `CHARTER.md` starts after the initial release (the whole solution live end to end, cloud
+  included); until then build. Once it applies, it is
   real: log the week's spend in its table, stop when spent, and say so.
 - History before this repo existed lives in the Synacl workspace's memory (`project_siteread_side_tool`,
   `project_seo_audit_sept`, `project_ai_traffic_view`) and the archive
