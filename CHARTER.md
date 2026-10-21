@@ -1,6 +1,6 @@
 # siteread — charter
 
-Decided 2026-10-21. Working name; the domain is not registered yet.
+Decided 2026-10-21. Name `siteread`, domain `siteread.dev` (owned), GitHub `synacl-iot/siteread`.
 
 ## What it is
 
@@ -48,8 +48,8 @@ Default until the owner sets it: **4 h owner time + one agent session (~half a d
 
 ## Owner decisions pending
 
-- Register the domain. Checked 2026-10-21: `siteread.dev` free (recommended), `.fyi` `.report` `.sh` `.page` free,
-  `.com` `.io` `.app` taken. npm `siteread` and PyPI `siteread` free.
+- ~~Register the domain~~ done 2026-10-21: **`siteread.dev`** bought ($11/yr). Parked, no DNS until phase 3.
+  `.com` `.io` `.app` are taken; nothing else was bought. npm `siteread` and PyPI `siteread` free (not yet claimed).
 - ~~GitHub owner~~ decided 2026-10-21: `synacl-iot/siteread`, created private; flip to public when the README and
   licence copy are approved.
 - The weekly hour number.
