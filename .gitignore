@@ -3,3 +3,4 @@ node_modules/
 *.log
 coverage/
 .env
+!packages/verify/test/fixtures/**/*.log

@@ -57,6 +57,23 @@ Options: `--no-cache` refetches every list now (a failed fetch still falls back 
 `--json` prints the whole result. The cache is `<os.tmpdir()>/siteread/lists.json`; set
 `SITEREAD_CACHE` to put it elsewhere. `siteread --help` prints all of this.
 
+## Digest (for the `seo-read` skill)
+
+`digest` reads a Search Console export (the Performance → Export → Download CSV zip) and your
+access logs (nginx/Apache combined, `.gz` fine) and prints one JSON document: weekly GSC totals with
+impression-weighted position, people by first-touch source (an IP that sent a browser UA, loaded
+an asset and never probed a scanner path), goal counts, and every crawler checked against its
+vendor's list.
+
+```console
+$ npx siteread digest --gsc export.zip --log access.log.1.gz --log access.log \
+    --site example.org --sitemap sitemap.xml --goal 'signup=^POST /signup 2' --out .siteread/digests
+.siteread/digests/2026-10-18.json
+```
+
+`npx siteread --help` lists every option. The skill in [`skill/`](../../skill/README.md) turns
+the JSON into a weekly memo.
+
 ## Library
 
 ```js

@@ -10,3 +10,7 @@ export {
 export { createVerifier, memoryStore } from './verifier.js';
 export { fileStore } from './file-store.js';
 export { VERSION } from './version.js';
+export { digest, parseSitemap, parseGoal } from './digest/index.js';
+export { parseCsv } from './digest/csv.js';
+export { classifySource } from './digest/referrer.js';
+export { parseLine } from './digest/log.js';
