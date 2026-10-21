@@ -7,6 +7,7 @@ The three network pieces behind `siteread.dev`, as one small service with zero d
 | `GET /v1/lists.json` | the merged crawler-list feed: every vendor's IP list in the one document `createVerifier({ feedUrl })` reads |
 | `POST /v1/share` | one site's week of aggregate numbers in, its percentile per metric back |
 | `GET /v1/benchmark.json` | the public aggregate the benchmark page renders, with `n` printed |
+| `GET /v1/operator/status` | counts for the private operator page; needs the operator token, absent without one |
 | `GET /healthz` | when the feed and the aggregate were last built |
 
 Plus two jobs: **feed** (fetch the vendor lists, publish the feed; every 6 h) and **aggregate**
@@ -29,6 +30,18 @@ npm test
 `serve.js` options: `--host` (default `127.0.0.1`), `--public-url` (where the benchmark page lives,
 named in share's answer; default `https://siteread.dev`), `--no-jobs`. Each also reads `PORT`,
 `HOST`, `SITEREAD_DATA`, `SITEREAD_PUBLIC_URL`. Data is one file per key under `--data`.
+
+Secrets and settings come from the environment, read by `src/config.js` for both `serve.js` and
+`job.js`:
+
+| Variable | |
+|---|---|
+| `SITEREAD_NAMED` | `{"<share id>": "<label>"}`: sites that chose to be named on the benchmark. The id is the only credential a share carries, so keep it secret; errors name an entry by position, never by id |
+| `SITEREAD_OPERATOR_TOKEN` | at least 32 characters (`openssl rand -hex 32`); unset, the operator route does not exist |
+| `SITEREAD_OPERATOR_ORIGIN` | the one browser origin allowed to call it (default `https://siteread.dev`) |
+
+`serve.js` writes its request counts to the store every hour and on SIGTERM. Where it should run, and
+what the host must not log, is in [HOSTING.md](HOSTING.md).
 
 Point the CLI at it with `siteread share --endpoint http://127.0.0.1:8787/v1/share`, and the library
 with `createVerifier({ feedUrl: 'http://127.0.0.1:8787/v1/lists.json' })`.
@@ -64,14 +77,22 @@ checks it with the same module's `validateShare`:
   same id and week again replaces the row. At most 100 new ids a day are taken (`429` after), which
   bounds how fast made-up sites can move the benchmark.
 - **Stored:** the validated share plus the day it arrived (`receivedOn`, not a time).
+- **Counted:** shares taken and refused per day, by a fixed refusal code (`SHARE_REFUSALS`), never by
+  message, since a message can echo a field name the sender chose.
 - **Answer:** per metric, the mid-rank percentile among each site's latest share in the 4 weeks
   ending at that week, with the number of sites that report that metric.
 
 ## The aggregate
 
-`benchmark.json` holds, per metric, its definition, the number of sites that report it, and the
-10th/25th/50th/75th/90th percentiles once at least 5 sites do (below that, the count only), plus
-`history`: how many sites shared each week. No ids, no rows.
+`benchmark.json` holds, per metric, its definition, whether lower is better, the number of
+anonymous sites that report it, and its 25th, 50th and 75th percentiles once at least 10 anonymous
+sites do (below that, the count only). Then `named`: each named site's label, week and own values,
+with its rank against the anonymous sites from the same threshold. And `history`: how many sites
+shared each week. No ids, no anonymous rows.
+
+Why three numbers from ten: five interpolated percentiles over five values give all five back
+(p25, p50 and p75 are the 2nd to 4th values; p10 and p90 then solve for the 1st and 5th). Three
+over ten pin none.
 
 ## Privacy
 
@@ -79,8 +100,10 @@ checks it with the same module's `validateShare`:
   `src/node.js` writes no access log. A proxy or platform in front of it may log requests; turning
   that off is part of choosing the host.
 - What arrives is numbers, a random id, an ISO week and a version; the allowlist is the only way in.
-- The public aggregate never carries a row or an id, and no quantile is published from fewer than
-  5 sites.
+- The public aggregate never carries an anonymous row or any id, and no percentile is published
+  from fewer than 10 anonymous sites.
+- The operator status is counts only: feed ages, the last feed run, shares and refusals per day,
+  new sites per day. No row, no id.
 
 ## License
 

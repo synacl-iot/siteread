@@ -77,13 +77,13 @@ test('share round trip: CLI → HTTP → stored → percentile back; the site ne
     assert.match(again.out, /\ngscClicks\s+3\s+50th\s+1\n/);
     assert.equal((await store.list('shares/')).filter(k => k.endsWith(`${sent.id}.json`)).length, 1);
 
-    // The aggregate job: n printed, quantiles only where 5+ sites report, ids nowhere.
+    // The aggregate job: n printed; six sites are under the 10 a published quartile needs, so the
+    // public document has counts and no spread at all. Ids nowhere.
     const doc = await app.runAggregate();
     assert.equal(doc.sites, 6);
     assert.equal(doc.metrics.people.sites, 6);
-    assert.equal(doc.metrics.people.p50, 4);
     assert.equal(doc.metrics.gscClicks.sites, 1);
-    assert.ok(!('p50' in doc.metrics.gscClicks));
+    assert.ok(!/"p\d+"/.test(JSON.stringify(doc)));
     assert.ok(!JSON.stringify(doc).includes(sent.id));
 
     // Everything the service holds, every key and value: no host, no path, no visitor IP, no UA.

@@ -1,15 +1,18 @@
-// The service as one Web-standard fetch handler plus two jobs, so the same code runs behind
+// The service as one Web-standard fetch handler plus its jobs, so the same code runs behind
 // node:http (src/node.js) or any host that speaks Request/Response.
 //
-//   GET  /v1/lists.json      the merged crawler-list feed (feed.js)
-//   POST /v1/share           one site's week of aggregates → stored → its percentiles
-//   GET  /v1/benchmark.json  the public aggregate (benchmark.js)
-//   GET  /healthz            when the feed and the aggregate were last built
+//   GET  /v1/lists.json        the merged crawler-list feed (feed.js)
+//   POST /v1/share             one site's week of aggregates → stored → its percentiles
+//   GET  /v1/benchmark.json    the public aggregate (benchmark.js)
+//   GET  /v1/operator/status   counts for the operator page; needs the operator token (config.js)
+//   GET  /healthz              when the feed and the aggregate were last built
 //
 // PRIVACY. The sender's IP is never read here: not stored, not logged, not used for limits. A row
 // keeps the day it arrived, not the time, so it cannot be lined up against a host's request log.
 // What arrives is checked against an allowlist (validateShare); anything else is refused, not
-// trimmed, so a client bug that would leak a hostname fails loudly instead of quietly.
+// trimmed, so a client bug that would leak a hostname fails loudly instead of quietly. Refusals
+// are counted by a fixed code, never by their message, which can echo a field name the sender
+// chose. The operator status is counts only: no row, no id, no label it was not already public.
 //
 // ABUSE. Anyone can post. A site re-sharing a week replaces its row; a cap on new sites per day
 // bounds how fast a flood of made-up ids can move the benchmark; bounds on every metric refuse
@@ -21,10 +24,13 @@ import { buildFeed, FEED_KEY } from './feed.js';
 import { compare, aggregate, windowOf, MIN_SITES } from './benchmark.js';
 
 export const BENCHMARK_KEY = 'benchmark.json';
+export const LAST_RUN_KEY = 'feed/last-run.json';
 export const MAX_SHARE_BYTES = 8 * 1024;
 export const MAX_WEEKS_BACK = 8;
 export const MAX_NEW_SITES_PER_DAY = 100;
+export const STATS_DAYS = 30;
 
+const DAY = 86_400_000;
 const JSON_TYPE = { 'content-type': 'application/json; charset=utf-8' };
 // The feed and the benchmark are public data: any page may read them, caches may keep them an hour.
 const PUBLIC = { 'access-control-allow-origin': '*', 'cache-control': 'public, max-age=3600' };
@@ -58,18 +64,45 @@ async function readCapped(request, max) {
     return new TextDecoder().decode(buf);
 }
 
+// Two secrets compared in constant time: SHA-256 makes the lengths equal, the XOR loop never
+// stops early. Web Crypto, so it runs wherever the handler does.
+async function sameSecret(a, b) {
+    const enc = new TextEncoder();
+    const [x, y] = await Promise.all([a, b].map(s => crypto.subtle.digest('SHA-256', enc.encode(s))));
+    const u = new Uint8Array(x), v = new Uint8Array(y);
+    let diff = 0;
+    for (let i = 0; i < u.length; i++) diff |= u[i] ^ v[i];
+    return diff === 0;
+}
+
 /**
  * @param {object} o
  * @param {{get, put, delete, list}} o.store   store.js
  * @param {() => number} [o.now]
  * @param {Function} [o.fetch]                 for the feed job's vendor GETs
  * @param {string} [o.publicUrl]               where the benchmark page lives, for share's answer
+ * @param {Map<string, string>} [o.named]      share id → public label (config.js)
+ * @param {string|null} [o.operatorToken]      unset: no operator route at all
+ * @param {string} [o.operatorOrigin]          the one browser origin that may call it
  */
 export function createApp({
     store, now = Date.now, fetch: fetchImpl = globalThis.fetch, log = console,
     publicUrl = 'https://siteread.dev', minSites = MIN_SITES,
     maxNewSitesPerDay = MAX_NEW_SITES_PER_DAY, maxWeeksBack = MAX_WEEKS_BACK,
+    named = new Map(), operatorToken = null, operatorOrigin = 'https://siteread.dev',
 } = {}) {
+    // day → { taken, refused: { code → n } }, merged into stats/<day>.json by flushStats(): one
+    // store write an hour instead of one per refused request.
+    const counts = new Map();
+    function count(code) {
+        const day = isoDay(now());
+        let c = counts.get(day);
+        if (!c) { c = { taken: 0, refused: {} }; counts.set(day, c); }
+        if (code === 'taken') c.taken++;
+        else c.refused[code] = (c.refused[code] ?? 0) + 1;
+    }
+    const refused = (code, status, error, headers) => { count(code); return refuse(status, error, headers); };
+
     async function readJson(key) {
         const text = await store.get(key);
         if (text == null) return null;
@@ -89,31 +122,33 @@ export function createApp({
 
     async function share(request) {
         if (!/^application\/json\s*(;|$)/i.test(request.headers.get('content-type') ?? '')) {
-            return refuse(415, 'send the share as application/json');
+            return refused('content-type', 415, 'send the share as application/json');
         }
-        if (Number(request.headers.get('content-length')) > MAX_SHARE_BYTES) return refuse(413, `a share is at most ${MAX_SHARE_BYTES} bytes`);
+        const tooLarge = `a share is at most ${MAX_SHARE_BYTES} bytes`;
+        if (Number(request.headers.get('content-length')) > MAX_SHARE_BYTES) return refused('too-large', 413, tooLarge);
         const text = await readCapped(request, MAX_SHARE_BYTES);
-        if (text == null) return refuse(413, `a share is at most ${MAX_SHARE_BYTES} bytes`);
+        if (text == null) return refused('too-large', 413, tooLarge);
         let body;
-        try { body = JSON.parse(text); } catch { return refuse(400, 'the body is not JSON'); }
+        try { body = JSON.parse(text); } catch { return refused('not-json', 400, 'the body is not JSON'); }
         const v = validateShare(body);
-        if (!v.ok) return refuse(400, v.error);
+        if (!v.ok) return refused(v.code, 400, v.error);
         const s = v.share;
 
         const t = now();
         const current = isoWeek(t);
-        if (weekStart(s.week) > weekStart(current)) return refuse(400, `week ${s.week} has not started yet (it is ${current})`);
-        if (weekStart(s.week) < weekStart(addWeeks(current, -maxWeeksBack))) return refuse(400, `week ${s.week} is more than ${maxWeeksBack} weeks ago`);
+        if (weekStart(s.week) > weekStart(current)) return refused('future-week', 400, `week ${s.week} has not started yet (it is ${current})`);
+        if (weekStart(s.week) < weekStart(addWeeks(current, -maxWeeksBack))) return refused('old-week', 400, `week ${s.week} is more than ${maxWeeksBack} weeks ago`);
 
         const today = isoDay(t);
         if ((await store.get(`sites/${s.id}`)) == null) {
             if ((await store.list(`new/${today}/`)).length >= maxNewSitesPerDay) {
-                return refuse(429, 'too many new sites today; try again tomorrow', { 'retry-after': '3600' });
+                return refused('new-site-cap', 429, 'too many new sites today; try again tomorrow', { 'retry-after': '3600' });
             }
             await store.put(`new/${today}/${s.id}`, '1');
             await store.put(`sites/${s.id}`, JSON.stringify({ firstSharedOn: today }));
         }
         await store.put(`shares/${s.week}/${s.id}.json`, JSON.stringify({ ...s, receivedOn: today }));
+        count('taken');
 
         const rows = (await Promise.all(windowOf(s.week).map(w => rowsUnder(`shares/${w}/`)))).flat();
         return json(200, { ok: true, ...compare(rows, s), benchmark: `${publicUrl}/benchmark` });
@@ -128,12 +163,82 @@ export function createApp({
         }, { 'cache-control': 'no-store' });
     }
 
+    // The operator page lives on another origin and sends a header, so the browser preflights.
+    // Only that origin gets the CORS answer; anywhere else the browser refuses to read the reply.
+    function operatorCors(request) {
+        return request.headers.get('origin') === operatorOrigin
+            ? { 'access-control-allow-origin': operatorOrigin, vary: 'origin' }
+            : { vary: 'origin' };
+    }
+
+    function operatorPreflight(request) {
+        const cors = operatorCors(request);
+        if (cors['access-control-allow-origin']) {
+            Object.assign(cors, { 'access-control-allow-methods': 'GET', 'access-control-allow-headers': 'authorization', 'access-control-max-age': '600' });
+        }
+        return new Response(null, { status: 204, headers: cors });
+    }
+
+    async function operatorStatus(request) {
+        const headers = { ...operatorCors(request), 'cache-control': 'no-store' };
+        const m = /^Bearer\s+(\S+)$/i.exec(request.headers.get('authorization') ?? '');
+        if (!m || !(await sameSecret(m[1], operatorToken))) {
+            count('operator-denied');
+            return refuse(401, 'the operator token is missing or wrong', { ...headers, 'www-authenticate': 'Bearer' });
+        }
+        const t = now();
+        const [feed, lastRun, bench, sites, stats] = await Promise.all([
+            readJson(FEED_KEY), readJson(LAST_RUN_KEY), readJson(BENCHMARK_KEY),
+            rowsUnder('sites/'), statsByDay(),
+        ]);
+        const days = Array.from({ length: 14 }, (_, i) => isoDay(t - (13 - i) * DAY));
+        const newPerDay = new Map(days.map(d => [d, 0]));
+        for (const s of sites) if (newPerDay.has(s.firstSharedOn)) newPerDay.set(s.firstSharedOn, newPerDay.get(s.firstSharedOn) + 1);
+        const today = isoDay(t);
+        return json(200, {
+            ok: true, siteread: VERSION, now: new Date(t).toISOString(),
+            feed: feed ? {
+                generatedAt: feed.generatedAt,
+                lists: Object.entries(feed.lists ?? {}).map(([agent, l]) => ({
+                    agent, prefixes: l.prefixes?.length ?? 0, fetchedAt: l.fetchedAt,
+                    ageHours: Math.round((t - Date.parse(l.fetchedAt)) / 360_000) / 10,
+                })),
+            } : null,
+            lastFeedRun: lastRun,
+            benchmark: bench ? {
+                generatedAt: bench.generatedAt, sites: bench.sites, window: bench.window, history: bench.history,
+                named: (bench.named ?? []).map(n => ({ label: n.label, week: n.week })),
+            } : null,
+            newSites: days.map(day => ({ day, sites: newPerDay.get(day) })),
+            newSitesToday: { sites: newPerDay.get(today), max: maxNewSitesPerDay },
+            requests: days.map(day => ({ day, taken: stats.get(day)?.taken ?? 0, refused: stats.get(day)?.refused ?? {} })),
+        }, headers);
+    }
+
+    // Stored counts plus what this process has not flushed yet.
+    async function statsByDay() {
+        const out = new Map();
+        const add = (day, c) => {
+            const o = out.get(day) ?? { taken: 0, refused: {} };
+            o.taken += c.taken ?? 0;
+            for (const [k, n] of Object.entries(c.refused ?? {})) o.refused[k] = (o.refused[k] ?? 0) + n;
+            out.set(day, o);
+        };
+        for (const k of await store.list('stats/')) {
+            const c = await readJson(k);
+            if (c) add(k.slice('stats/'.length, -'.json'.length), c);
+        }
+        for (const [day, c] of counts) add(day, c);
+        return out;
+    }
+
     const routes = {
         '/v1/lists.json': { GET: () => serveDoc(FEED_KEY, 'feed') },
         '/v1/share': { POST: share },
         '/v1/benchmark.json': { GET: () => serveDoc(BENCHMARK_KEY, 'benchmark') },
         '/healthz': { GET: health },
     };
+    if (operatorToken) routes['/v1/operator/status'] = { GET: operatorStatus, OPTIONS: operatorPreflight };
 
     /** The fetch handler. Never throws: a failure is a 500 with no detail. */
     async function handle(request) {
@@ -142,24 +247,49 @@ export function createApp({
         const fn = route[request.method === 'HEAD' ? 'GET' : request.method];
         if (!fn) return refuse(405, `${request.method} is not allowed here`, { allow: Object.keys(route).join(', ') });
         try { return await fn(request); } catch (err) {
+            count('internal');
             log?.error?.(`[siteread-cloud] ${new URL(request.url).pathname}: ${err?.message || err}`);
             return refuse(500, 'internal error');
         }
     }
 
-    /** The feed job: fetch the vendor lists, publish the merged feed. */
+    /** The feed job: fetch the vendor lists, publish the merged feed, record how the run went. */
     async function runFeed() {
-        return buildFeed({ store, fetch: fetchImpl, now, log });
+        const at = new Date(now()).toISOString();
+        try {
+            const r = await buildFeed({ store, fetch: fetchImpl, now, log });
+            const { fetched, failed, dropped, errors } = r.result;
+            await store.put(LAST_RUN_KEY, JSON.stringify({ at, fetched, failed, dropped, errors }));
+            return r;
+        } catch (err) {
+            await store.put(LAST_RUN_KEY, JSON.stringify({ at, error: err?.message || String(err) })).catch(() => {});
+            throw err;
+        }
     }
 
     /** The aggregate job: every stored row → benchmark.json; prunes the new-site markers. */
     async function runAggregate() {
-        const doc = aggregate(await rowsUnder('shares/'), { now: now(), minSites });
+        const doc = aggregate(await rowsUnder('shares/'), { now: now(), minSites, named });
         await store.put(BENCHMARK_KEY, JSON.stringify(doc));
-        const yesterday = isoDay(now() - 86_400_000);
+        const yesterday = isoDay(now() - DAY);
         for (const k of await store.list('new/')) if (k.split('/')[1] < yesterday) await store.delete(k);
         return doc;
     }
 
-    return { fetch: handle, runFeed, runAggregate };
+    /** Merge this process's request counts into the store and forget them; drop days past 30. */
+    async function flushStats() {
+        const pending = [...counts];
+        counts.clear();
+        for (const [day, c] of pending) {
+            const key = `stats/${day}.json`;
+            const o = (await readJson(key)) ?? { taken: 0, refused: {} };
+            o.taken += c.taken;
+            for (const [k, n] of Object.entries(c.refused)) o.refused[k] = (o.refused[k] ?? 0) + n;
+            await store.put(key, JSON.stringify(o));
+        }
+        const oldest = isoDay(now() - STATS_DAYS * DAY);
+        for (const k of await store.list('stats/')) if (k.slice('stats/'.length, -'.json'.length) < oldest) await store.delete(k);
+    }
+
+    return { fetch: handle, runFeed, runAggregate, flushStats };
 }

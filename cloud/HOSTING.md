@@ -100,7 +100,10 @@ public endpoint that anyone can call without authentication:
   for that row.
 
 Both go in a root-owned, mode 0600 systemd `EnvironmentFile`, never in the repository or the unit
-file.
+file. If the jobs run from timers (`--no-jobs`), the timer units load the same file: an aggregate
+run without `SITEREAD_NAMED` publishes the benchmark without its named row (it warns on stderr).
+Optional: `SITEREAD_OPERATOR_ORIGIN` (default `https://siteread.dev`), the one origin allowed to
+call the operator route from a browser.
 
 ## Deploy
 

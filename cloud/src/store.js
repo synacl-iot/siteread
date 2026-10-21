@@ -7,6 +7,8 @@
 //   shares/<week>/<id>.json one row per site per ISO week
 //   sites/<id>              when a site first shared (for the new-sites-per-day cap)
 //   new/<day>/<id>          a marker per new site per day, pruned by the aggregate job
+//   feed/last-run.json      how the last feed run went (for the operator page)
+//   stats/<day>.json        shares taken and refused that day, by refusal code; kept 30 days
 //   benchmark.json          the published aggregate
 
 import { mkdir, readFile, writeFile, rename, unlink, readdir } from 'node:fs/promises';

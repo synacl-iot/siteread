@@ -48,6 +48,7 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 | 2026-W43 | one agent session (~15 min wall, 38 tool calls) + owner's design discussion | charter, skeleton, **phase 1 done**: `packages/verify` 42 tests, CLI verified live |
 | 2026-W43 | agent sessions for phase 2 and release prep + owner's publishes (pre-release, cap not in force) | **phase 2 done** (PR #1): `siteread digest` + `seo-read` skill, 60 tests; npm `siteread` 0.2.0 → 0.2.1, PyPI `siteread` 0.0.1 placeholder |
 | 2026-W43 | one agent session for phase 3's cloud part (pre-release, cap not in force) | **`cloud/` built, not deployed** (PR #2): feed, `share` endpoint, aggregate job; `siteread share` in the CLI (0.3.0, unpublished); 87 tests; feed and share round-trip against a local server. `site/` next |
+| 2026-W43 | one agent session (pre-release, cap not in force) | hosting brief `cloud/HOSTING.md` (Vultr: existing VM or a new one); operator status, live named row, quartiles from 10 anonymous sites (PR #2); 95 tests; siteread.dev page mockup for the owner's sign-off. `site/` (Angular 22, SSR) after sign-off |
 
 ## Owner decisions pending
 
@@ -62,12 +63,17 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 - Phase 3 hosting (feed, `share`, aggregate job, public page) and `siteread.dev` DNS: owner picks from checked candidates
   (PR #2's write-up). The CLI's default share address, `https://api.siteread.dev/v1/share` (`packages/verify/src/share.js`),
   follows the DNS pick.
-- `share` defaults, set in PR #2 and the owner's to change: quantiles published only from 5 sites per metric, at most
-  100 new sites a day, each site's latest share within 4 weeks compared, a random per-site id kept in `.siteread/share-id`.
+- `share` defaults, set in PR #2 and the owner's to change: at most 100 new sites a day, each site's latest share within
+  4 weeks compared, a random per-site id kept in `.siteread/share-id`. Decided 2026-10-22 by the owner: the benchmark
+  publishes the 25th/50th/75th percentiles only, from 10 anonymous sites per metric (five percentiles from 5 sites gave
+  every value back); synacl.com is the named row, live from its own share.
+- Hosting: the owner wants Vultr (one bill with Synacl); `cloud/HOSTING.md` is the brief for choosing between an
+  existing VM and a new small one.
 
 ## Non-goals
 
 - Prompt-tracking / "does ChatGPT mention my brand" (Profound, Peec, Otterly do this; we read logs).
 - Blocking or rate-limiting crawlers (Cloudflare does this).
-- A dashboard. The output is a memo.
+- A dashboard. The output is a memo. (The private operator page on siteread.dev shows the service's own health to
+  its operator; it is not a product feature.)
 - Any feature that needs hostnames or visitor IPs to leave the user's machine.

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../src/app.js';
+import { fromEnv } from '../src/config.js';
 import { dirStore } from '../src/store.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -19,8 +20,13 @@ if (positionals.length !== 1 || !['feed', 'aggregate'].includes(name)) {
     process.exit(1);
 }
 
-const app = createApp({ store: dirStore(o.data) });
 try {
+    // The same named rows as the server: an aggregate run from cron must not drop them.
+    const config = fromEnv(process.env);
+    if (name === 'aggregate' && !config.named.size) {
+        process.stderr.write('siteread-cloud: aggregate: SITEREAD_NAMED is not set, so the benchmark gets no named row\n');
+    }
+    const app = createApp({ store: dirStore(o.data), ...config });
     if (name === 'feed') {
         const { feed, result } = await app.runFeed();
         const counts = Object.fromEntries(Object.entries(feed.lists).map(([a, l]) => [a, { prefixes: l.prefixes.length, fetchedAt: l.fetchedAt }]));

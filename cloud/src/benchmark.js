@@ -5,16 +5,20 @@
 // week still counts with its week before. 4 weeks because the early benchmark is small: a single
 // week would compare almost nobody with anybody.
 //
-// What is published: per metric, quantiles only once at least MIN_SITES sites report it. Below
-// that the page prints the count and nothing else, so no anonymous site's number can be read off
-// a quantile. Sites are anonymous (a random id); the page's named first row is written by hand.
+// What is published: per metric, the quartiles of the ANONYMOUS sites, and only once MIN_SITES of
+// them report it. Below that the page prints the count and nothing else. Why 10 and why only
+// three numbers: five interpolated quantiles over five values give every one of them back
+// (p25/p50/p75 ARE the 2nd-4th values, p10 and p90 then solve for the 1st and 5th); three
+// numbers over ten values pin none. Named sites (config.js) are left out of that count and out of
+// the quartiles: their own numbers are public by their choice, and their rank against the
+// anonymous sites is shown from the same threshold, since a rank among a few gives them away.
 
 import { SHARE_METRICS, isoWeek, weekStart, addWeeks } from '../../packages/verify/src/share.js';
 import { VERSION } from '../../packages/verify/src/version.js';
 
 export const WINDOW_WEEKS = 4;
-export const MIN_SITES = 5;
-export const QUANTILES = Object.freeze([10, 25, 50, 75, 90]);
+export const MIN_SITES = 10;
+export const QUANTILES = Object.freeze([25, 50, 75]);
 
 const byWeek = (a, b) => weekStart(a) - weekStart(b);
 const round1 = n => Math.round(n * 10) / 10;
@@ -68,27 +72,45 @@ export function compare(rows, share) {
     return { week: share.week, window: { from: window[0], to: window.at(-1) }, sites: pop.length, percentiles };
 }
 
-/** The public aggregate over every stored row, as of `now`. */
-export function aggregate(rows, { now = Date.now(), minSites = MIN_SITES } = {}) {
+/**
+ * The public aggregate over every stored row, as of `now`. `named` maps a share id to its public
+ * label (config.js); no id appears anywhere in the result.
+ */
+export function aggregate(rows, { now = Date.now(), minSites = MIN_SITES, named = new Map() } = {}) {
     const current = weekStart(isoWeek(now));
     const weeks = [...new Set(rows.map(r => r.week))].filter(w => weekStart(w) <= current).sort(byWeek);
     const latest = weeks.at(-1) ?? null;
     const pop = latest ? latestPerSite(rows, latest) : [];
+    const anon = pop.filter(r => !named.has(r.id));
+    const valuesOf = k => anon.filter(r => Object.hasOwn(r.metrics, k)).map(r => r.metrics[k]).sort((a, b) => a - b);
     const metrics = {};
     for (const [k, spec] of Object.entries(SHARE_METRICS)) {
-        const values = pop.filter(r => Object.hasOwn(r.metrics, k)).map(r => r.metrics[k]).sort((a, b) => a - b);
-        const m = { about: spec.about, sites: values.length };
+        const values = valuesOf(k);
+        const m = { about: spec.about, lowerIsBetter: Boolean(spec.lowerIsBetter), sites: values.length };
         if (values.length >= minSites) for (const q of QUANTILES) m[`p${q}`] = round1(quantile(values, q));
         metrics[k] = m;
     }
+    // A named site with no share in the window stays listed with nothing, so the page shows that
+    // it stopped instead of the row quietly disappearing.
+    const namedRows = [...named].map(([id, label]) => {
+        const r = pop.find(x => x.id === id);
+        if (!r) return { label, week: null, metrics: {} };
+        const out = {};
+        for (const [k, value] of Object.entries(r.metrics)) {
+            const values = valuesOf(k);
+            out[k] = values.length >= minSites ? { value, percentile: percentileOf([...values, value], value) } : { value };
+        }
+        return { label, week: r.week, metrics: out };
+    });
     const window = latest ? windowOf(latest) : null;
     return {
         siteread: VERSION,
         generatedAt: new Date(now).toISOString(),
         window: window ? { from: window[0], to: window.at(-1) } : null,
-        sites: pop.length,
+        sites: anon.length,
         minSites,
         metrics,
+        named: namedRows,
         // Sites that shared each week: the benchmark's n over time, printed so it reads as small.
         history: weeks.map(w => ({ week: w, sites: new Set(rows.filter(r => r.week === w).map(r => r.id)).size })),
     };
