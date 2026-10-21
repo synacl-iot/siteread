@@ -47,6 +47,7 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 |---|---|---|
 | 2026-W43 | one agent session (~15 min wall, 38 tool calls) + owner's design discussion | charter, skeleton, **phase 1 done**: `packages/verify` 42 tests, CLI verified live |
 | 2026-W43 | agent sessions for phase 2 and release prep + owner's publishes (pre-release, cap not in force) | **phase 2 done** (PR #1): `siteread digest` + `seo-read` skill, 60 tests; npm `siteread` 0.2.0 → 0.2.1, PyPI `siteread` 0.0.1 placeholder |
+| 2026-W43 | one agent session for phase 3's cloud part (pre-release, cap not in force) | **`cloud/` built, not deployed** (PR #2): feed, `share` endpoint, aggregate job; `siteread share` in the CLI (0.3.0, unpublished); 87 tests; feed and share round-trip against a local server. `site/` next |
 
 ## Owner decisions pending
 
@@ -58,7 +59,11 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 - ~~License~~ decided 2026-10-21: MIT.
 - ~~Claim npm `siteread` and PyPI `siteread`~~ done 2026-10-21 by the owner: npm 0.2.0, PyPI 0.0.1 (a placeholder
   that points to npm until the Python twin exists).
-- Phase 3 hosting (feed, `share`, aggregate job, public page) and `siteread.dev` DNS: owner picks from checked candidates.
+- Phase 3 hosting (feed, `share`, aggregate job, public page) and `siteread.dev` DNS: owner picks from checked candidates
+  (PR #2's write-up). The CLI's default share address, `https://api.siteread.dev/v1/share` (`packages/verify/src/share.js`),
+  follows the DNS pick.
+- `share` defaults, set in PR #2 and the owner's to change: quantiles published only from 5 sites per metric, at most
+  100 new sites a day, each site's latest share within 4 weeks compared, a random per-site id kept in `.siteread/share-id`.
 
 ## Non-goals
 
