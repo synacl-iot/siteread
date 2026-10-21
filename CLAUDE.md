@@ -15,9 +15,12 @@ cap is spent, stop and say so.
 
 ## Starting a session here
 
-- State: phase 1 (`packages/verify`) done 2026-10-21, 42 tests, CLI verified against live vendor lists. Phase 2
-  (`skill/`) is next. The working name is NOT final: the owner chooses the name; never pick one.
-- The weekly cap in `CHARTER.md` is real: log the week's spend in its table, stop when spent, and say so.
+- State: phases 1 (`packages/verify`) and 2 (`siteread digest` + `skill/seo-read`) done 2026-10-21, 60 tests.
+  npm `siteread` 0.2.1 and a PyPI `siteread` 0.0.1 placeholder are the owner's publishes. Phase 3 (`cloud/` +
+  `site/`) is next; its hosting and the `siteread.dev` DNS are the owner's pick. The name `siteread` is final
+  (owner's pick, domain `siteread.dev` bought 2026-10-21); further names stay the owner's call. Repo stays private until the owner says.
+- The weekly cap in `CHARTER.md` starts after the initial release; until then build. Once it applies, it is
+  real: log the week's spend in its table, stop when spent, and say so.
 - History before this repo existed lives in the Synacl workspace's memory (`project_siteread_side_tool`,
   `project_seo_audit_sept`, `project_ai_traffic_view`) and the archive
   `iotoneweb/.claude/archives/2026-09-10-seo-audit-growth-plan.md` (Measurement log = the memo shape to copy).
@@ -28,10 +31,12 @@ cap is spent, stop and say so.
 ## Rules
 
 - Node ≥ 20, ESM, zero runtime dependencies in `packages/verify`. Tests with `node:test`, never jest.
-- Nothing here imports from or writes to `../iotoneweb`. Port by copying and crediting; Synacl keeps its copies.
+- Nothing here imports from or writes to `../iotoneweb`. Port by copying; Synacl keeps its copies. Never say where
+  code came from: no "ported from" credits in code, READMEs, package metadata or the charter (owner, 2026-10-21).
+  A measured story names "one site", not synacl.com.
 - Never send hostnames, URLs or visitor IPs anywhere. `share` prints the exact payload before sending.
 - Vendor lists are fetched from the vendors by default; the feed is an opt-in override until it exists.
-- Keep the WHY comments from the ported code: they are the product knowledge (the 444 rule, the ClaudeBot
+- Keep the WHY comments: they are the product knowledge (the 444 rule, the ClaudeBot
   README-link incident, Claude-User from claude-code being the user's own IP, Google-Extended never being a UA).
 - No Synacl branding in this repo. Synacl appears only as the first honest data row and in the post's byline.
   The GitHub home is `synacl-iot/siteread` (origin): the org is the maker, which is not branding.

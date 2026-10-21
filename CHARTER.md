@@ -6,8 +6,7 @@ Decided 2026-10-21. Name `siteread`, domain `siteread.dev` (owned), GitHub `syna
 
 A free, open-source way for builders to answer "who read my site this week, was it good, and what
 should I write next" from three things they already have: a server log, a Search Console export and
-a read beacon. It is the pipeline Synacl Labs built for synacl.com over Sept–Oct 2026, taken out of
-that codebase and made general.
+a read beacon.
 
 For: indie builders and developers who use AI tools and run a content-driven site. Not Synacl's
 IoT customers. Different audience, different brand, different domain.
@@ -40,20 +39,25 @@ Python twin: later, as a thin client of the feed, not a port.
 
 ## Weekly budget
 
-Default until the owner sets it: **4 h owner time + one agent session (~half a day) per week.**
+Set by the owner 2026-10-21: **one day a week, under 6 h, starting after the initial release.** Until
+then the build runs at full pace.
 
 | Week | Spent | What |
 |---|---|---|
 | 2026-W43 | one agent session (~15 min wall, 38 tool calls) + owner's design discussion | charter, skeleton, **phase 1 done**: `packages/verify` 42 tests, CLI verified live |
+| 2026-W43 | agent sessions for phase 2 and release prep + owner's publishes (pre-release, cap not in force) | **phase 2 done** (PR #1): `siteread digest` + `seo-read` skill, 60 tests; npm `siteread` 0.2.0 → 0.2.1, PyPI `siteread` 0.0.1 placeholder |
 
 ## Owner decisions pending
 
 - ~~Register the domain~~ done 2026-10-21: **`siteread.dev`** bought ($11/yr). Parked, no DNS until phase 3.
-  `.com` `.io` `.app` are taken; nothing else was bought. npm `siteread` and PyPI `siteread` free (not yet claimed).
+  `.com` `.io` `.app` are taken; nothing else was bought.
 - ~~GitHub owner~~ decided 2026-10-21: `synacl-iot/siteread`, created private; flip to public when the README and
-  licence copy are approved.
-- The weekly hour number.
-- License (default MIT).
+  licence copy are approved. Held private by the owner 2026-10-21.
+- ~~The weekly hour number~~ set 2026-10-21: one day a week, under 6 h (see Weekly budget).
+- ~~License~~ decided 2026-10-21: MIT.
+- ~~Claim npm `siteread` and PyPI `siteread`~~ done 2026-10-21 by the owner: npm 0.2.0, PyPI 0.0.1 (a placeholder
+  that points to npm until the Python twin exists).
+- Phase 3 hosting (feed, `share`, aggregate job, public page) and `siteread.dev` DNS: owner picks from checked candidates.
 
 ## Non-goals
 
@@ -61,10 +65,3 @@ Default until the owner sets it: **4 h owner time + one agent session (~half a d
 - Blocking or rate-limiting crawlers (Cloudflare does this).
 - A dashboard. The output is a memo.
 - Any feature that needs hostnames or visitor IPs to leave the user's machine.
-
-## Where the code came from
-
-Ported from `iotoneweb/iotone` (the Synacl backend keeps its own copies; nothing flows back):
-`services/ai_ip_ranges.js`, `AGENTS` in `services/ai_traffic.js`, `CRAWLER_RE` in `services/edge_log.js`,
-`PROBE_RE` in `services/access_log.service.js`, `landing/assets/read-beacon.js`, and the memo method in
-`.claude/archives/2026-09-10-seo-audit-growth-plan.md` (Measurement log).
