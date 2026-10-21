@@ -252,7 +252,7 @@ export function createLogDigest({
                 a = {
                     agent: c.agent, kind: detectAgent(c.ua) ? 'ai' : 'crawler', purpose: e?.purpose ?? null,
                     requests: 0, ips: 0,
-                    verified: { ips: 0, requests: 0, pageFetches: 0, sitemapFetches: 0, pages: new Set(), perDay: new Map() },
+                    verified: { ips: 0, requests: 0, pageFetches: 0, sitemapFetches: 0, pages: new Set(), perDay: new Map(), perDayAll: new Map() },
                     spoofed: { ips: 0, requests: 0 },
                     unknown: { ips: 0, requests: 0, pageFetches: 0 },
                 };
@@ -267,6 +267,7 @@ export function createLogDigest({
                 for (const [d, ps] of c.pages) {
                     const counted = sitemap ? ps.filter(p => sitemap.has(p)) : ps;
                     countBy(b.perDay, d, counted.length);
+                    countBy(b.perDayAll, d, ps.length);
                     b.sitemapFetches += sitemap ? counted.length : 0;
                     for (const p of ps) b.pages.add(p);
                 }
@@ -289,7 +290,7 @@ export function createLogDigest({
                         sitemapFetches: sitemap ? v.sitemapFetches : null,
                         uniquePages: v.pages.size, sitemapCovered: covered,
                         offSitemapPages: offSitemap ? offSitemap.slice(0, 10) : null,
-                        perWeek: weekly(v.perDay, lastDay, firstDay),
+                        perWeek: weekly(v.perDay, lastDay, firstDay, v.perDayAll),
                     },
                     spoofed: a.spoofed,
                     unknown: a.unknown,
@@ -335,21 +336,25 @@ function sitemapCoverage(sitemap, crawlers, crawl, limit) {
     return { urls: sitemap.size, fetchedBySearch: sitemap.size - never.length, neverFetched: never.slice(0, limit), neverFetchedCount: never.length };
 }
 
-// Verified fetches per 7-day bucket ending on the last day: sitemap URLs only when a sitemap was given.
-function weekly(perDay, lastDay, firstDay) {
+// Verified fetches per 7-day bucket ending on the last day: `fetches` counts sitemap URLs only when
+// a sitemap was given, `pageFetches` every page. `share` sends the second, so a benchmark row
+// means the same thing with or without a sitemap.
+function weekly(perDay, lastDay, firstDay, perDayAll) {
     if (!lastDay) return [];
     const end = Date.parse(`${lastDay}T00:00:00Z`);
-    const b = new Map();
-    for (const [d, n] of perDay) {
-        const w = Math.floor((end - Date.parse(`${d}T00:00:00Z`)) / (7 * 86_400_000));
-        countBy(b, w, n);
-    }
+    const bucket = (byDay) => {
+        const b = new Map();
+        for (const [d, n] of byDay) countBy(b, Math.floor((end - Date.parse(`${d}T00:00:00Z`)) / (7 * 86_400_000)), n);
+        return b;
+    };
+    const b = bucket(perDay);
+    const all = bucket(perDayAll);
     const out = [];
     const nWeeks = Math.floor((end - Date.parse(`${firstDay}T00:00:00Z`)) / (7 * 86_400_000));
     for (let w = nWeeks; w >= 0; w--) {
         const iso = ms => new Date(ms).toISOString().slice(0, 10);
         const lo = iso(end - (7 * w + 6) * 86_400_000);
-        out.push({ from: lo < firstDay ? firstDay : lo, to: iso(end - 7 * w * 86_400_000), fetches: b.get(w) ?? 0 });
+        out.push({ from: lo < firstDay ? firstDay : lo, to: iso(end - 7 * w * 86_400_000), fetches: b.get(w) ?? 0, pageFetches: all.get(w) ?? 0 });
     }
     return out;
 }
