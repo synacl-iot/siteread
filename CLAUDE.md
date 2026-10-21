@@ -34,3 +34,4 @@ cap is spent, stop and say so.
 - Keep the WHY comments from the ported code: they are the product knowledge (the 444 rule, the ClaudeBot
   README-link incident, Claude-User from claude-code being the user's own IP, Google-Extended never being a UA).
 - No Synacl branding in this repo. Synacl appears only as the first honest data row and in the post's byline.
+  The GitHub home is `synacl-iot/siteread` (origin): the org is the maker, which is not branding.

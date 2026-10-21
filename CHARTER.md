@@ -14,8 +14,9 @@ IoT customers. Different audience, different brand, different domain.
 
 ## Principles (settled, don't re-litigate)
 
-1. **Separate from Synacl.** Own domain, own repo, own name. synacl.com gets one story post that
-   links here. Nothing of this product's docs, benchmark or changelog lives on synacl.com.
+1. **Separate from Synacl, made by Synacl Labs.** Own domain and own name; the repo lives under the
+   company's GitHub org (`synacl-iot/siteread`) because the maker is named honestly. synacl.com gets
+   one story post that links here. Nothing of this product's docs, benchmark or changelog lives on synacl.com.
 2. **Honest.** Synacl's own numbers are public and named: the first row in the benchmark and the
    worked example in the post. Small, growing and dated beats big and vague. The failures ship.
 3. **Time-capped.** A fixed weekly budget (owner sets the number; default below). When it is spent
@@ -48,8 +49,9 @@ Default until the owner sets it: **4 h owner time + one agent session (~half a d
 ## Owner decisions pending
 
 - Register the domain. Checked 2026-10-21: `siteread.dev` free (recommended), `.fyi` `.report` `.sh` `.page` free,
-  `.com` `.io` `.app` taken. npm `siteread` and PyPI `siteread` free. GitHub `siteread` is TAKEN: pick an org name.
-- GitHub owner for the public repo (not `synacl-iot`; `siteread` itself is taken).
+  `.com` `.io` `.app` taken. npm `siteread` and PyPI `siteread` free.
+- ~~GitHub owner~~ decided 2026-10-21: `synacl-iot/siteread`, created private; flip to public when the README and
+  licence copy are approved.
 - The weekly hour number.
 - License (default MIT).
 
