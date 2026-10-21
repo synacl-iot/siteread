@@ -3,7 +3,8 @@
 **Was that really ClaudeBot?** `siteread` takes the IP and User-Agent of a request from your access
 log and checks the IP against the list the claimed vendor publishes: `verified`, `spoofed` or `unknown`.
 
-Node ≥ 20, zero dependencies, nothing leaves your machine except GETs of the vendors' public IP lists.
+Node ≥ 20, zero dependencies, nothing leaves your machine except GETs of the vendors' public IP lists
+(and a `share`, if you choose to send one).
 
 ## Install
 
@@ -73,6 +74,67 @@ $ npx siteread digest --gsc export.zip --log access.log.1.gz --log access.log \
 
 `npx siteread --help` lists every option. The skill in [`skill/`](../../skill/README.md) turns
 the JSON into a weekly memo.
+
+## Share (opt-in)
+
+`share` sends one week of a digest's aggregate numbers to the public benchmark and prints where your
+site sits among the others. It prints the exact bytes first and sends nothing without a yes (a
+prompt, or `--yes` in a script). `--dry-run` prints and stops.
+
+```console
+$ npx siteread share --dry-run
+siteread: the whole payload from .siteread/digests/2026-10-18.json, byte for byte, for https://api.siteread.dev/v1/share:
+{
+  "schema": 1,
+  "id": "3803e566762f2e56ba381b993ddf466e",
+  "week": "2026-W42",
+  "siteread": "0.3.0",
+  "metrics": {
+    "people": 4,
+    "peopleFromSearch": 1,
+    "peopleFromAi": 0,
+    "peopleFromSocial": 2,
+    "aiAnswerFetches": 0,
+    "aiSearchFetches": 0,
+    "aiTrainingFetches": 2,
+    "searchEngineFetches": 8,
+    "aiSpoofedPct": 25,
+    "gscImpressions": 238,
+    "gscClicks": 3,
+    "gscCtrPct": 1.3,
+    "gscPosition": 17.9
+  }
+}
+siteread: not sent (--dry-run)
+```
+
+With six sites in the window (five of them made up for this example), the answer reads:
+
+```console
+sent. 2026-W42 compared with 6 sites: each site's latest share, 2026-W39 to 2026-W42
+
+metric                   yours  percentile  sites
+people                       4        50th      6
+peopleFromAi                 0        25th      6
+gscImpressions             238        42nd      6
+gscClicks                    3        33rd      6
+gscPosition               17.9        42nd      6  (lower is better)
+…
+```
+
+- **What is sent:** the numbers above for the digest's last 7 days (`aiSpoofedPct` is over the whole
+  log), a week label, the version, and a random id. `SHARE_METRICS` defines each one.
+- **What is never sent:** hostnames, URLs or paths, visitor IPs, user-agents, query text, goal
+  labels. The payload is built from an allowlist of numbers, and the endpoint refuses anything else.
+- **The id** is 128 random bits in `.siteread/share-id`, made on first use. It makes the benchmark
+  count sites rather than shares, and a second share of the same week replaces the first. Delete the
+  file to start over as a new site.
+- A part with less than a full week (a 4-day log, an export whose last week is cut short) is left
+  out and the CLI says so. `--endpoint` (or `SITEREAD_SHARE_URL`) sends elsewhere: `https://` only,
+  plain `http://` only to localhost.
+
+In the library, `sharePayload(digest, { id })` returns `{ payload, notes }`, and `validateShare(body)`
+is the endpoint's check.
 
 ## Library
 
@@ -220,11 +282,12 @@ All of them answer `{ "creationTime": …, "prefixes": [{ "ipv4Prefix": … } | 
 
 Local use sends nothing anywhere except plain GETs of the URLs above, with the User-Agent
 `siteread/<version>`. No hostnames, URLs or visitor IPs leave your machine. There is no reverse-DNS
-check for the same reason: a PTR lookup sends the visitor's IP to your resolver.
+check for the same reason: a PTR lookup sends the visitor's IP to your resolver. `share` is the one
+exception: opt-in, its exact payload printed first, aggregate numbers only.
 
 `feedUrl` points the verifier at one merged document,
 `{ "lists": { "<agent>": { "prefixes": [...], "fetchedAt": "..." } } }`, instead of the vendors. It
-is for a hosted feed that is planned but **not live yet**, so it is off by default and strictly opt-in.
+is for the hosted feed (this repo's `cloud/`), which is **not live yet**, so it is off by default and strictly opt-in.
 Every prefix from a feed is re-validated like a vendor's, and a `fetchedAt` in the future is clamped
 to now.
 
