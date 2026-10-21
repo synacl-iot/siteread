@@ -3,8 +3,7 @@
 // "444 rule" (nginx answers these with 444, "close, send nothing") the verifier falls back on
 // when a vendor publishes no IP list (createVerifier's `isKnownScannerIp`).
 //
-// Ported from the edge classifier Synacl Labs runs on synacl.com (2026-10), keeping only the
-// host-blind, product-agnostic rules; that site's own carve-outs are gone. A site with a real
+// Only host-blind, product-agnostic rules live here, no one site's carve-outs. A site with a real
 // path that matches (a /install.sh, a Decap CMS /admin/config.yml) passes `allow`.
 //
 // Classify on the REQUEST PATH ONLY, never the User-Agent: a scanner whose UA was literally

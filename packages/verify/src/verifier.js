@@ -9,7 +9,7 @@
 // A vendor list always wins over the 444 rule: ClaudeBot once followed a broken README link
 // into a scanner path, and the 444 rule called a real crawler spoofed (ip-ranges.js).
 //
-// Refresh rules are the ported ones (ip-ranges.js): refetch a list when the stored copy is
+// Refresh rules (ip-ranges.js): refetch a list when the stored copy is
 // > 24 h old, keep the old copy when a fetch fails, drop a copy nobody could refresh for 8 days.
 // Nothing here throws.
 

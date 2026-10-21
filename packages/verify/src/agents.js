@@ -1,9 +1,6 @@
 // Who a request CLAIMS to be, from its User-Agent. A claim only: anyone can send any UA, and
-// on the site this was extracted from most AI user-agents outside the vendors' IP lists were a
-// scanner cycling through them (ip-ranges.js has the numbers). verifier.js turns a claim into a
-// verdict.
-//
-// Ported from the AI-traffic classifier Synacl Labs runs on synacl.com (2026-10).
+// on one site's log most AI user-agents outside the vendors' IP lists were a scanner cycling
+// through them (ip-ranges.js has the numbers). verifier.js turns a claim into a verdict.
 //
 // purpose: `answer`   fetched live while answering someone (ChatGPT-User, Perplexity-User)
 //          `search`   building the assistant's search index (OAI-SearchBot, PerplexityBot)

@@ -230,4 +230,4 @@ to now.
 
 ## License
 
-MIT. Extracted from the pipeline Synacl Labs runs on synacl.com.
+MIT.

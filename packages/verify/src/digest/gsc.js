@@ -1,7 +1,7 @@
 // A Google Search Console Performance export (the "Export → Download CSV" zip, or the folder it
 // unzips to) → the numbers a weekly read needs.
 //
-// The method is the one that held up over six weekly reads of synacl.com (2026-09 → 10):
+// The method is the one that held up over six weekly reads of one site (2026-09 → 10):
 //   - Totals come from the daily series (Dates.csv; older exports call it Chart.csv), never by
 //     summing Pages.csv: a page table double-counts an impression that showed two URLs.
 //   - Position is impression-weighted (Σ position·impressions / Σ impressions). A plain mean

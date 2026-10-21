@@ -10,7 +10,7 @@ import { VERSION } from '../version.js';
 
 // GSC clicks vs people the log saw arrive from Google, over the days both cover. They are
 // different counts (a click without a Referer reads as direct; one person can click twice), so
-// this is a sanity check, never a sum. On synacl.com they tracked within 10 % day by day.
+// this is a sanity check, never a sum. On one site they tracked within 10 % day by day.
 function crossCheck(gsc, log) {
     const from = gsc.range.from > log.range.from ? gsc.range.from : log.range.from;
     const to = gsc.range.to < log.range.to ? gsc.range.to : log.range.to;

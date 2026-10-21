@@ -1,10 +1,7 @@
 // The vendors' published crawler IP lists: what tells a real ChatGPT-User from a scanner
-// wearing its User-Agent.
+// wearing its User-Agent. The store is pluggable (verifier.js).
 //
-// Ported from the crawler-verification code Synacl Labs runs on synacl.com (2026-10). There it
-// lived behind a Redis key shared by a cluster; here the store is pluggable (verifier.js).
-//
-// WHY (measured on that site's nginx log, 2026-09-17 → 10-16). A scanner cycles AI user-agents:
+// WHY (measured on one site's nginx log, 2026-09-17 → 10-16). A scanner cycles AI user-agents:
 // 217 of 221 ChatGPT-User requests from outside OpenAI's list came from IPs that also got a 444
 // (nginx's "close the connection, send nothing" answer to a scanner path), and DeepSeekBot /
 // CCBot / Grok / Perplexity-User / Claude-SearchBot were 100 % spoofed. Where a vendor publishes

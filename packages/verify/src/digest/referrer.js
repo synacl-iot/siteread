@@ -1,7 +1,7 @@
 // Where a visit came from: the Referer of its first page view, or the landing URL's utm_source.
 //
 // utm_source wins because the AI assistants mostly send no Referer: ChatGPT tags its links
-// `?utm_source=chatgpt.com`, and on synacl.com that tag was the only trace of what became the
+// `?utm_source=chatgpt.com`, and on one site that tag was the only trace of what became the
 // channel with the most tool use per visitor (2026-09). ChatGPT traffic never appears in GSC.
 
 // [source, kind, host test]. First match wins, so gemini.google.com sits before google.

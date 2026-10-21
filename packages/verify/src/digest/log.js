@@ -1,6 +1,6 @@
 // An access log (nginx / Apache "combined", plain or .gz) → people, sources and crawlers.
 //
-// Who counts as a person is the rule synacl.com settled on after its first counts were wrong
+// Who counts as a person is the rule one site settled on after its first counts were wrong
 // (2026-09-28, stricter than the read a week earlier, so compare only reads made the same way):
 //   a person = an IP that sent no bot User-Agent, never asked for a scanner path or drew a 444,
 //   and loaded at least one asset (CSS/JS/font/image). Link checkers, previewers and most bots
@@ -11,7 +11,7 @@
 // Referer from a cloud provider's address space is set aside and counted on its own line.
 //
 // Crawlers are counted on page fetches (and on sitemap URLs when a sitemap is given), each IP
-// checked against its vendor's list. The raw UA count lies: one week synacl.com's log showed
+// checked against its vendor's list. The raw UA count lies: one week that site's log showed
 // "Googlebot 6.9k", and it was scanners wearing Googlebot's UA against the bare IP. Googlebot
 // also crawls from 192.178.x, not only 66.249.x: a first-octet guess undercounted it by a third.
 
@@ -323,7 +323,7 @@ export function createLogDigest({
     return { add, finish };
 }
 
-// Sitemap URLs no verified search crawler fetched in this log. On synacl.com one clean guide was
+// Sitemap URLs no verified search crawler fetched in this log. On one site a clean guide was
 // never fetched by Googlebot in 21 days and had 0 impressions; it was linked from too few pages.
 function sitemapCoverage(sitemap, crawlers, crawl, limit) {
     const fetched = new Set();
