@@ -1,6 +1,6 @@
-# whofetched
+# siteread
 
-**Was that really ClaudeBot?** `whofetched` takes the IP and User-Agent of a request from your access
+**Was that really ClaudeBot?** `siteread` takes the IP and User-Agent of a request from your access
 log and checks the IP against the list the claimed vendor publishes: `verified`, `spoofed` or `unknown`.
 
 Node ≥ 20, zero dependencies, nothing leaves your machine except GETs of the vendors' public IP lists.
@@ -8,8 +8,8 @@ Node ≥ 20, zero dependencies, nothing leaves your machine except GETs of the v
 ## Install
 
 ```sh
-npm install whofetched        # the library
-npx whofetched --help         # the CLI, no install
+npm install siteread        # the library
+npx siteread --help         # the CLI, no install
 ```
 
 ## CLI
@@ -18,13 +18,13 @@ npx whofetched --help         # the CLI, no install
 reuse a copy younger than 24 h.
 
 ```console
-$ npx whofetched check 216.73.216.12 "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
+$ npx siteread check 216.73.216.12 "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
 verified  216.73.216.12 is claudebot (claude, training): in claude.com/crawling/bots.json (38 prefixes, fetched 2026-10-20T20:04:53Z)
 
-$ npx whofetched check 203.0.113.9 "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot"
+$ npx siteread check 203.0.113.9 "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot"
 spoofed   203.0.113.9 claims chatgpt-user (chatgpt, answer) but is not in openai.com/chatgpt-user.json (234 prefixes, fetched 2026-10-20T20:04:53Z)
 
-$ npx whofetched check 203.0.113.9 "Claude-User (claude-code/2.1.292; +https://support.anthropic.com/)"
+$ npx siteread check 203.0.113.9 "Claude-User (claude-code/2.1.292; +https://support.anthropic.com/)"
 unknown   203.0.113.9 claims claude-code (claude, answer): Claude Code's WebFetch runs from the user's own machine, so no vendor list can cover it. If this IP also requested scanner paths in your log, treat it as spoofed
 ```
 
@@ -38,7 +38,7 @@ unknown   203.0.113.9 claims claude-code (claude, answer): Claude Code's WebFetc
 `lists` shows what the cache holds:
 
 ```console
-$ npx whofetched lists
+$ npx siteread lists
 agent             prefixes  fetched (UTC)         source
 chatgpt-user           234  2026-10-20T20:04:53Z  https://openai.com/chatgpt-user.json
 oai-searchbot           39  2026-10-20T20:04:53Z  https://openai.com/searchbot.json
@@ -54,13 +54,13 @@ bingbot                 28  2026-10-20T20:04:53Z  https://www.bing.com/toolbox/b
 ```
 
 Options: `--no-cache` refetches every list now (a failed fetch still falls back to the cached copy),
-`--json` prints the whole result. The cache is `<os.tmpdir()>/whofetched/lists.json`; set
-`WHOFETCHED_CACHE` to put it elsewhere. `whofetched --help` prints all of this.
+`--json` prints the whole result. The cache is `<os.tmpdir()>/siteread/lists.json`; set
+`SITEREAD_CACHE` to put it elsewhere. `siteread --help` prints all of this.
 
 ## Library
 
 ```js
-import { createVerifier, isScannerPath } from 'whofetched';
+import { createVerifier, isScannerPath } from 'siteread';
 
 const verifier = createVerifier();
 await verifier.refresh();                 // fetch the lists; call again every few hours
@@ -110,17 +110,17 @@ It returns:
 
 ### The 444 rule, for agents without a list
 
-Most operators publish no IP list. For those, `whofetched` says `unknown` rather than guess. If you
+Most operators publish no IP list. For those, `siteread` says `unknown` rather than guess. If you
 know which IPs probed your site for scanner paths, pass that and an `unknown` becomes `spoofed`:
 
 ```js
 import { readFileSync } from 'node:fs';
-import { createVerifier, fileStore, isScannerPath } from 'whofetched';
+import { createVerifier, fileStore, isScannerPath } from 'siteread';
 
 const lines = readFileSync('access.log', 'utf8').trim().split('\n').map(JSON.parse);   // your log format here
 const scanners = new Set(lines.filter(l => isScannerPath(l.request_uri)).map(l => l.remote_addr));
 
-const verifier = createVerifier({ store: fileStore('.whofetched.json'), isKnownScannerIp: ip => scanners.has(ip) });
+const verifier = createVerifier({ store: fileStore('.siteread.json'), isKnownScannerIp: ip => scanners.has(ip) });
 await verifier.refresh();
 for (const l of lines) {
   const r = verifier.check(l.remote_addr, l.http_user_agent);
@@ -202,7 +202,7 @@ All of them answer `{ "creationTime": …, "prefixes": [{ "ipv4Prefix": … } | 
 ## Privacy
 
 Local use sends nothing anywhere except plain GETs of the URLs above, with the User-Agent
-`whofetched/<version>`. No hostnames, URLs or visitor IPs leave your machine. There is no reverse-DNS
+`siteread/<version>`. No hostnames, URLs or visitor IPs leave your machine. There is no reverse-DNS
 check for the same reason: a PTR lookup sends the visitor's IP to your resolver.
 
 `feedUrl` points the verifier at one merged document,

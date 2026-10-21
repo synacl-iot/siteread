@@ -1,4 +1,4 @@
-// whofetched: is that crawler who it says it is? Vendor IP lists + a User-Agent table +
+// siteread: is that crawler who it says it is? Vendor IP lists + a User-Agent table +
 // scanner-path signatures, with zero dependencies. See README.md.
 
 export { AGENTS, CRAWLERS, detectAgent, detectCrawler, isSearchCrawler } from './agents.js';

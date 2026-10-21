@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// whofetched CLI. No dependencies; arguments parsed by hand.
+// siteread CLI. No dependencies; arguments parsed by hand.
 //
-//   whofetched check <ip> "<user-agent>"   exit 0 verified · 2 spoofed · 3 unknown / n/a · 1 usage or error
-//   whofetched lists
-//   whofetched --help
+//   siteread check <ip> "<user-agent>"   exit 0 verified · 2 spoofed · 3 unknown / n/a · 1 usage or error
+//   siteread lists
+//   siteread --help
 //
-// Lists are cached in one file (os.tmpdir()/whofetched/lists.json, or $WHOFETCHED_CACHE) and
+// Lists are cached in one file (os.tmpdir()/siteread/lists.json, or $SITEREAD_CACHE) and
 // refetched only when older than 24 h. The only network traffic is GETs of the vendors' lists.
 
 import os from 'node:os';
@@ -13,14 +13,14 @@ import path from 'node:path';
 import { createVerifier, fileStore, detectAgent, detectCrawler, VERSION } from '../src/index.js';
 
 const EXIT = { verified: 0, spoofed: 2, unknown: 3, 'n/a': 3, usage: 1 };
-const cacheFile = process.env.WHOFETCHED_CACHE || path.join(os.tmpdir(), 'whofetched', 'lists.json');
+const cacheFile = process.env.SITEREAD_CACHE || path.join(os.tmpdir(), 'siteread', 'lists.json');
 
-const HELP = `whofetched ${VERSION}: is that crawler who it says it is?
+const HELP = `siteread ${VERSION}: is that crawler who it says it is?
 
 Usage:
-  whofetched check <ip> "<user-agent>"   verdict for one request
-  whofetched lists                       every vendor list: prefixes and when it was fetched
-  whofetched --help | --version
+  siteread check <ip> "<user-agent>"   verdict for one request
+  siteread lists                       every vendor list: prefixes and when it was fetched
+  siteread --help | --version
 
 Options:
   --no-cache   refetch every list now (a copy younger than 24 h is otherwise reused;
@@ -33,7 +33,7 @@ Exit codes (check):
   3 unknown    no list to check against, or the UA is not a known AI agent or crawler
   1            usage error, or not an IP address
 
-Cache: ${cacheFile}  (override with WHOFETCHED_CACHE)
+Cache: ${cacheFile}  (override with SITEREAD_CACHE)
 Nothing leaves this machine except GETs of the vendors' public IP lists.`;
 
 function parseArgs(argv) {
@@ -49,7 +49,7 @@ function parseArgs(argv) {
 }
 
 function usage(msg) {
-    process.stderr.write(`whofetched: ${msg}\nRun "whofetched --help" for usage.\n`);
+    process.stderr.write(`siteread: ${msg}\nRun "siteread --help" for usage.\n`);
     return EXIT.usage;
 }
 
@@ -69,9 +69,9 @@ function reportFailures(result, verifier) {
     for (const agent of failed) {
         const l = held.get(agent);
         const kept = l?.prefixes ? `kept the copy from ${when(l.fetchedAt)}` : 'no copy to fall back on';
-        process.stderr.write(`whofetched: could not refresh ${agent}: ${result.errors?.[agent] || 'failed'} (${kept})\n`);
+        process.stderr.write(`siteread: could not refresh ${agent}: ${result.errors?.[agent] || 'failed'} (${kept})\n`);
     }
-    if (result.error) process.stderr.write(`whofetched: cache ${cacheFile}: ${result.error}\n`);
+    if (result.error) process.stderr.write(`siteread: cache ${cacheFile}: ${result.error}\n`);
 }
 
 function describe(ip, ua, r, list) {
@@ -153,5 +153,5 @@ async function main(argv) {
 
 main(process.argv.slice(2)).then(
     (code) => { process.exitCode = code; },
-    (err) => { process.stderr.write(`whofetched: ${err?.stack || err}\n`); process.exitCode = 1; },
+    (err) => { process.stderr.write(`siteread: ${err?.stack || err}\n`); process.exitCode = 1; },
 );

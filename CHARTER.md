@@ -1,4 +1,4 @@
-# whofetched — charter
+# siteread — charter
 
 Decided 2026-10-21. Working name; the domain is not registered yet.
 
@@ -30,7 +30,7 @@ IoT customers. Different audience, different brand, different domain.
 
 | Phase | What | Done when |
 |---|---|---|
-| 1 | `packages/verify` — npm `whofetched`: crawler verification lib + CLI | `npx whofetched check <ip> "<ua>"` answers verified / spoofed / unknown from live vendor lists; tests green; README tells the ClaudeBot story |
+| 1 | `packages/verify` — npm `siteread`: crawler verification lib + CLI | `npx siteread check <ip> "<ua>"` answers verified / spoofed / unknown from live vendor lists; tests green; README tells the ClaudeBot story |
 | 2 | `skill/` — Claude Code skill `seo-read`: GSC export + log file (+ beacon rollup) → weekly memo | Produces a memo in the Synacl Measurement-log shape from a stranger's inputs without editing the skill |
 | 3 | `cloud/` + `site/` — list feed, `share` endpoint, public aggregate page with `n` printed | Synacl is row 1; the page is linkable; `share` round-trips |
 | 4 | The post on synacl.com/guides/ with real numbers, linking the package and the skill | Live, IndexNow'd, posted to dev.to + HN |
@@ -47,8 +47,9 @@ Default until the owner sets it: **4 h owner time + one agent session (~half a d
 
 ## Owner decisions pending
 
-- Register the domain (`whofetched.com` was free on 10-21; alternates `crawlread.com`, `fetchledger.com`, `crawlmemo.com`).
-- GitHub owner for the public repo (not `synacl-iot`).
+- Register the domain. Checked 2026-10-21: `siteread.dev` free (recommended), `.fyi` `.report` `.sh` `.page` free,
+  `.com` `.io` `.app` taken. npm `siteread` and PyPI `siteread` free. GitHub `siteread` is TAKEN: pick an org name.
+- GitHub owner for the public repo (not `synacl-iot`; `siteread` itself is taken).
 - The weekly hour number.
 - License (default MIT).
 

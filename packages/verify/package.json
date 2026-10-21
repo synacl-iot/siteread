@@ -1,5 +1,5 @@
 {
-  "name": "whofetched",
+  "name": "siteread",
   "version": "0.1.0",
   "description": "Is that crawler who it says it is? Checks an IP + User-Agent against the AI and search vendors' published IP lists. Zero dependencies.",
   "type": "module",
@@ -7,7 +7,7 @@
     "node": ">=20"
   },
   "bin": {
-    "whofetched": "./bin/whofetched.js"
+    "siteread": "./bin/siteread.js"
   },
   "exports": {
     ".": "./src/index.js",

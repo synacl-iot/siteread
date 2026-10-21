@@ -20,7 +20,7 @@ import {
 import { detectAgent, detectCrawler } from './agents.js';
 import { VERSION } from './version.js';
 
-const USER_AGENT = `whofetched/${VERSION} (+https://www.npmjs.com/package/whofetched)`;
+const USER_AGENT = `siteread/${VERSION} (+https://www.npmjs.com/package/siteread)`;
 
 /** The default store: one process, nothing on disk. */
 export function memoryStore(initial = null) {
@@ -109,7 +109,7 @@ export function createVerifier({
         const msg = err?.message || String(err);
         out.failed.push(agent);
         out.errors[agent] = msg;
-        log?.warn?.(`[whofetched] ${what} failed: ${msg}`);
+        log?.warn?.(`[siteread] ${what} failed: ${msg}`);
     }
 
     /**
@@ -125,7 +125,7 @@ export function createVerifier({
         try {
             doc = normDoc(await store.get());
         } catch (err) {
-            log?.error?.(`[whofetched] store read failed: ${err.message}`);
+            log?.error?.(`[siteread] store read failed: ${err.message}`);
             out.error = err.message;
             return out;
         }
@@ -151,7 +151,7 @@ export function createVerifier({
             }
             if (out.fetched.length || out.dropped.length) await store.set(doc);
         } catch (err) {
-            log?.error?.(`[whofetched] refresh failed: ${err.message}`);
+            log?.error?.(`[siteread] refresh failed: ${err.message}`);
             out.error = err.message;
         }
         // Whatever made it into `doc` is usable in this process even if the store write failed.
@@ -165,7 +165,7 @@ export function createVerifier({
         try {
             matcher = buildMatcher(normDoc(await store.get()), { sources: srcs, now: t });
         } catch (err) {
-            log?.error?.(`[whofetched] store read failed: ${err.message}`);
+            log?.error?.(`[siteread] store read failed: ${err.message}`);
         }
         return lists();
     }

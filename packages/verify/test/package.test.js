@@ -6,7 +6,7 @@ import { VERSION } from '../src/index.js';
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 test('package.json: ESM, Node >= 20, zero dependencies, version in step with src/version.js', () => {
-    assert.equal(pkg.name, 'whofetched');
+    assert.equal(pkg.name, 'siteread');
     assert.equal(pkg.type, 'module');
     assert.equal(pkg.engines.node, '>=20');
     assert.equal(pkg.license, 'MIT');
@@ -16,7 +16,7 @@ test('package.json: ESM, Node >= 20, zero dependencies, version in step with src
 });
 
 test('the bin is an executable node script', () => {
-    const bin = new URL(`../${pkg.bin.whofetched}`, import.meta.url);
+    const bin = new URL(`../${pkg.bin.siteread}`, import.meta.url);
     assert.match(readFileSync(bin, 'utf8'), /^#!\/usr\/bin\/env node\n/);
     if (process.platform !== 'win32') assert.ok(statSync(bin).mode & 0o111, 'executable bit');
 });

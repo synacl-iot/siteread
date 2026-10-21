@@ -8,7 +8,7 @@ import { fileStore } from '../src/index.js';
 const posix = typeof process.getuid === 'function';
 
 function tempDir(t) {
-    const dir = mkdtempSync(join(tmpdir(), 'whofetched-test-'));
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-test-'));
     t.after(() => rmSync(dir, { recursive: true, force: true }));
     return dir;
 }

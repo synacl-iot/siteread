@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SOURCES, parseList } from '../src/index.js';
 
-const BIN = fileURLToPath(new URL('../bin/whofetched.js', import.meta.url));
+const BIN = fileURLToPath(new URL('../bin/siteread.js', import.meta.url));
 // The child gets a fetch that always fails, so a test that would touch the network fails loudly.
 const OFFLINE = 'data:text/javascript,globalThis.fetch=async()=>{throw new Error("offline in tests")}';
 const FIXTURE_FOR = {
@@ -25,7 +25,7 @@ const CLAUDEBOT = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible
 
 /** A cache file holding every fixture list, fetched "now": the CLI never needs the network. */
 function seededCache(t, { fetchedAt = new Date().toISOString(), only } = {}) {
-    const dir = mkdtempSync(join(tmpdir(), 'whofetched-cli-'));
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-cli-'));
     t.after(() => rmSync(dir, { recursive: true, force: true }));
     const lists = {};
     for (const { agent, url } of SOURCES) {
@@ -40,7 +40,7 @@ function seededCache(t, { fetchedAt = new Date().toISOString(), only } = {}) {
 
 function run(args, cache) {
     const r = spawnSync(process.execPath, ['--import', OFFLINE, BIN, ...args], {
-        env: { ...process.env, WHOFETCHED_CACHE: cache ?? join(tmpdir(), 'whofetched-cli-unused', 'lists.json') },
+        env: { ...process.env, SITEREAD_CACHE: cache ?? join(tmpdir(), 'siteread-cli-unused', 'lists.json') },
         encoding: 'utf8',
     });
     return { code: r.status, out: r.stdout, err: r.stderr };
@@ -110,7 +110,7 @@ test('lists prints every source', (t) => {
 
 test('usage errors exit 1; --help exits 0', () => {
     assert.equal(run(['--help']).code, 0);
-    assert.match(run(['--help']).out, /whofetched check <ip> "<user-agent>"/);
+    assert.match(run(['--help']).out, /siteread check <ip> "<user-agent>"/);
     assert.equal(run([]).code, 1);
     assert.equal(run(['check']).code, 1);
     assert.equal(run(['check', '1.2.3.4']).code, 1);
