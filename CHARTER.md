@@ -69,6 +69,9 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
   every value back); synacl.com is the named row, live from its own share.
 - Hosting: the owner wants Vultr (one bill with Synacl); `cloud/HOSTING.md` is the brief for choosing between an
   existing VM and a new small one.
+- Site look: a private mockup canvas (https://claude.ai/artifact/TLSBMYHxqw5NKxpYWnVXaK) holds four directions; the
+  owner shortlisted A · Ledger and C · Memo on 2026-10-22 and decides after another pass on 2026-10-23. `site/` waits
+  for that decision; it is Angular 22 with SSR (owner's pick), built on the owner's machine with only `dist/` shipped.
 
 ## Non-goals
 
