@@ -50,7 +50,7 @@ ask the user how their server logs; don't guess a format.
 ## 2. Run the digest
 
 ```sh
-npx -y siteread@0.3 digest \
+npx -y siteread@0.2 digest \
   --gsc <export.zip> --log <access.log.1.gz> --log <access.log> \
   --site <host> [--host <host> …] --sitemap <sitemap.xml> \
   --goal '<label=regex>' --team-path '<regex>' \
@@ -67,9 +67,9 @@ npx -y siteread@0.3 digest \
   nothing.
 - Warnings go to stderr. Read every one; each belongs in the memo's method notes or changes how
   you read a number.
-- If `siteread` is installed (`siteread --version` prints 0.3 or later), `siteread digest …` is the
+- If `siteread` is installed (`siteread --version` prints 0.2.1 or later), `siteread digest …` is the
   same command without npx.
-- Run `npx -y siteread@0.3 --help` for every option. Exit 1 is a usage or input problem: fix it, don't
+- Run `npx -y siteread@0.2 --help` for every option. Exit 1 is a usage or input problem: fix it, don't
   work around it by reading the CSVs yourself.
 
 ## 3. Read the digest
@@ -183,13 +183,13 @@ and ask which of the recommended next steps they want to take.
 The public benchmark at siteread.dev compares sites by these same weekly numbers. Offer it once
 per read, after the memo; never send without a yes.
 
-1. Run `npx -y siteread@0.3 share --dry-run`. It prints the exact payload it would send (a week
+1. Run `npx -y siteread@0.2 share --dry-run`. It prints the exact payload it would send (a week
    label, the version, a random id and the week's totals: no host, URL, path, IP or query) and
    sends nothing.
 2. Show the user that payload and the CLI's notes (a part with less than a full week is left
    out), and ask whether to send it. If `.siteread/config.json` says `"share": false`, skip this
    step; if the user says never, write that there.
-3. On a yes, run `npx -y siteread@0.3 share --yes` and show its answer: for each number, the
+3. On a yes, run `npx -y siteread@0.2 share --yes` and show its answer: for each number, the
    band it falls in among the benchmark's published quartiles, or how many sites report it so
    far. Add one line to the memo's method notes: "Shared <week> to the siteread benchmark."
 4. The id in `.siteread/share-id` keeps the site one row from week to week; never print it or

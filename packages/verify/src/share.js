@@ -143,7 +143,7 @@ export function sharePayload(digest, { id, proof = null, version = VERSION } = {
                 if (c.kind === 'ai') { aiRequests += c.requests ?? 0; aiSpoofed += c.spoofed?.requests ?? 0; }
                 const w = c.verified?.perWeek?.at(-1);
                 if (!w || w.to !== to) continue;
-                // A digest before 0.3 has only `fetches`, which counts sitemap URLs alone when it
+                // A digest before 0.2.1 has only `fetches`, which counts sitemap URLs alone when it
                 // had a sitemap: that would not mean the same as everyone else's row.
                 const n = w.pageFetches ?? (c.verified.sitemapFetches == null ? w.fetches : null);
                 if (n == null) { complete = false; continue; }
@@ -153,7 +153,7 @@ export function sharePayload(digest, { id, proof = null, version = VERSION } = {
                 if (key) fetches[key] += n;
             }
             if (complete) Object.assign(metrics, fetches);
-            else notes.push('log: this digest predates per-week page fetches (siteread < 0.3 with a sitemap); crawler numbers left out, run the digest again');
+            else notes.push('log: this digest predates per-week page fetches (siteread < 0.2.1 with a sitemap); crawler numbers left out, run the digest again');
             if (aiRequests) metrics.aiSpoofedPct = pct1((100 * aiSpoofed) / aiRequests);
             else notes.push('log: no requests under AI user-agents; aiSpoofedPct left out');
         }

@@ -49,7 +49,7 @@ with `createVerifier({ feedUrl: 'http://127.0.0.1:8787/v1/lists.json' })`.
 ## The feed
 
 ```json
-{ "siteread": "0.3.0", "generatedAt": "2026-10-21T17:28:48.171Z",
+{ "siteread": "0.2.1", "generatedAt": "2026-10-21T17:28:48.171Z",
   "lists": { "claudebot": { "prefixes": ["216.73.216.0/22", "…"], "fetchedAt": "2026-10-21T17:28:46.433Z",
                             "source": "https://claude.com/crawling/bots.json" }, "…": {} } }
 ```
@@ -66,7 +66,7 @@ The CLI's `siteread share` builds the payload (`packages/verify/src/share.js`) a
 checks it with the same module's `validateShare`:
 
 ```json
-{ "schema": 1, "id": "<32 random hex digits>", "week": "2026-W42", "siteread": "0.3.0",
+{ "schema": 1, "id": "<32 random hex digits>", "week": "2026-W42", "siteread": "0.2.1",
   "metrics": { "people": 4, "gscClicks": 3, "…": 0 } }
 ```
 
