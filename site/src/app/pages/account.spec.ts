@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { Type } from '@angular/core';
+import { Component, Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { tokenFromHash } from '../account';
@@ -8,13 +8,16 @@ import { API_BASE, AccountView } from '../api';
 import { AccountPage } from './account';
 import { AccountVerify } from './account-verify';
 
+@Component({ template: '' })
+class Blank {}
+
 const SESSION = 'b'.repeat(64);
 const VIEW: AccountView = { plan: 'free', createdOn: '2026-10-22', verifiedOn: '2026-10-22', key: 'sr_f29a4…', sites: ['0'.repeat(32)] };
 
 function setup<T>(component: Type<T>) {
   TestBed.configureTestingModule({
     imports: [component],
-    providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting(), { provide: API_BASE, useValue: 'http://api.test' }],
+    providers: [provideRouter([{ path: '**', component: Blank }]), provideHttpClient(), provideHttpClientTesting(), { provide: API_BASE, useValue: 'http://api.test' }],
   });
   const fixture = TestBed.createComponent(component);
   return { fixture, el: fixture.nativeElement as HTMLElement, http: TestBed.inject(HttpTestingController) };
