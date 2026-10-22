@@ -1,4 +1,5 @@
-// An access log (nginx / Apache "combined", plain or .gz) → people, sources and crawlers.
+// An access log (nginx / Apache "combined", or Caddy's JSON; plain or .gz) → people, sources and
+// crawlers.
 //
 // Who counts as a person is the rule one site settled on after its first counts were wrong
 // (2026-09-28, stricter than the read a week earlier, so compare only reads made the same way):
@@ -39,8 +40,9 @@ const GENERIC_BOT_RE = /bot\b|bot\/|crawl|spider|slurp|fetch|scan|curl\/|wget\/|
 export const CLOUD_FIRST_OCTETS = Object.freeze([3, 13, 15, 16, 18, 34, 35, 44, 52, 54]);
 const CLOUD = new Set(CLOUD_FIRST_OCTETS);
 
-/** One combined-format line → request, or null. */
+/** One access-log line, combined or Caddy JSON (a line that starts with "{"), → request, or null. */
 export function parseLine(line) {
+    if (line.charCodeAt(0) === 123) return parseCaddyLine(line);
     const m = LINE_RE.exec(line);
     if (!m) return null;
     const [, ip, time, method, target, status, referer = '-', ua = '-'] = m;
@@ -50,6 +52,25 @@ export function parseLine(line) {
     const ts = Date.UTC(+t[3], MONTHS[t[2]], +t[1], +t[4], +t[5], +t[6]) - off * 60_000;
     const unesc = s => s.replace(/\\x22/g, '"').replace(/\\"/g, '"');
     return { ip, ts, method, target, status: Number(status), referer: unesc(referer), ua: unesc(ua) };
+}
+
+// Caddy writes its access log as JSON (the `log` directive's default) and cannot write "combined"
+// without a plugin a distribution's package does not carry; siteread.dev's own log is one. Caddy
+// has no 444, so a scanner there shows by its path alone, which the 444 rule reads anyway.
+// `client_ip` (Caddy ≥ 2.7, after trusted proxies) wins over `remote_ip`; `ts` is Unix seconds
+// unless the log was configured with another time format.
+/** One Caddy JSON access-log entry → request, or null. */
+export function parseCaddyLine(line) {
+    let e;
+    try { e = JSON.parse(line); } catch { return null; }
+    const r = e?.request;
+    if (!r || typeof r !== 'object') return null;
+    const ip = r.client_ip || r.remote_ip;
+    const ts = typeof e.ts === 'number' ? Math.round(e.ts * 1000) : Date.parse(e.ts);
+    if (typeof ip !== 'string' || !ip || !Number.isFinite(ts) || typeof r.method !== 'string' || typeof r.uri !== 'string'
+        || !Number.isInteger(e.status)) return null;
+    const first = k => (Array.isArray(r.headers?.[k]) && typeof r.headers[k][0] === 'string' ? r.headers[k][0] : '-');
+    return { ip, ts, method: r.method, target: r.uri, status: e.status, referer: first('Referer'), ua: first('User-Agent') };
 }
 
 /** Day (YYYY-MM-DD) of a timestamp in an IANA zone. */

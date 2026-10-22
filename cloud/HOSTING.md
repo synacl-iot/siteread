@@ -48,18 +48,24 @@ heap lazily up to its default limit, so without the flag the process sits near 2
 siteread promises its users that the service never keeps the IP address of anyone who sends a share
 or fetches the feed. The application code never reads it. The host must not keep it either:
 
-1. **No access log with client IPs** for these three names. Caddy writes none unless a `log`
-   directive is added. nginx needs `access_log off;` in these server blocks.
-2. **No client IPs in error logs.** nginx's `error_log` lines carry `client: <ip>`. For these
-   server blocks, set `error_log` to a level or destination that does not keep them (`crit`, or
-   `/dev/null`).
-3. **Nothing else that persists client IPs** for these names: no WAF or fail2ban log, no
+1. **No access log with client IPs for `api.siteread.dev` or `www.siteread.dev`.** Caddy writes
+   none unless a `log` directive is added. nginx needs `access_log off;` in these server blocks.
+2. **The one exception: `siteread.dev`'s own access log** (the owner's decision, 2026-10-22), so
+   siteread can read its own site like any of its users' sites. Page requests only, in a folder
+   only root and the proxy can read, every line gone after 28 days; the privacy page says so. A
+   share or a feed fetch never goes to this name, so it cannot tie a share to an address.
+3. **No client IPs in error logs, for any of the three.** nginx's `error_log` lines carry
+   `client: <ip>`; set it to a level or destination that does not keep them (`crit`, or
+   `/dev/null`). Caddy logs every failed request (a 502 while an upstream restarts) under
+   `http.log.error` with the client's IP and user-agent, access log or not: exclude its `http`
+   loggers from the default log, as `deploy/Caddyfile` does. Learned on the first deploy.
+4. **Nothing else that persists client IPs** for these names: no WAF or fail2ban log, no
    analytics, no log shipping of these vhosts.
-4. **Allowed:** in-memory rate limiting (nginx `limit_req`, Caddy rate-limit), because it is never
+5. **Allowed:** in-memory rate limiting (nginx `limit_req`, Caddy rate-limit), because it is never
    written down.
-5. **How to check:** send a request from a known IP to each name, including one that is refused (a
-   `POST /v1/share` with a 20 KB body), then `grep -r <that ip> /var/log` must find nothing that
-   belongs to these names.
+6. **How to check:** send a request from a known IP to each name, including one that is refused (a
+   `POST /v1/share` with a 20 KB body) and one that fails upstream, then `grep -r <that ip> /var/log`
+   and the journal must find nothing outside `siteread.dev`'s own access log.
 
 ## Proxy limits
 

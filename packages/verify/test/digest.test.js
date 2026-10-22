@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync, copyFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 import {
     digest, parseCsv, parseLine, classifySource, parseSitemap, parseGoal,
     createVerifier, memoryStore, SOURCES, parseList,
@@ -65,6 +66,58 @@ test('parseLine: combined format, offsets to UTC, escaped quotes, junk', () => {
     // Common format (no referer/UA) still parses; a TLS probe does not.
     assert.equal(parseLine('1.2.3.4 - - [05/Oct/2026:20:00:00 +0000] "GET / HTTP/1.1" 200 9').ua, '-');
     assert.equal(parseLine('\\x16\\x03\\x01 garbage'), null);
+});
+
+test('parseLine: a Caddy JSON entry, client_ip over remote_ip, missing headers, junk', () => {
+    const entry = {
+        level: 'info', ts: 1791223200.25, logger: 'http.log.access.log0', msg: 'handled request',
+        request: {
+            remote_ip: '10.0.0.1', remote_port: '5555', client_ip: '1.2.3.4', proto: 'HTTP/2.0', method: 'GET',
+            host: 'example.org', uri: '/a/?x=1', headers: { 'User-Agent': ['Mozilla/5.0 "q"'], Referer: ['https://r.example/'] },
+        },
+        status: 200, size: 9, duration: 0.001,
+    };
+    assert.deepEqual(parseLine(JSON.stringify(entry)), {
+        ip: '1.2.3.4', ts: Date.parse('2026-10-05T18:00:00.250Z'), method: 'GET', target: '/a/?x=1',
+        status: 200, referer: 'https://r.example/', ua: 'Mozilla/5.0 "q"',
+    });
+    // Caddy 2.6 has no client_ip; a request with no headers keeps the combined format's "-".
+    const old = { ...entry, request: { remote_ip: '1.2.3.4', method: 'GET', uri: '/', headers: {} } };
+    assert.deepEqual([parseLine(JSON.stringify(old)).ip, parseLine(JSON.stringify(old)).ua, parseLine(JSON.stringify(old)).referer], ['1.2.3.4', '-', '-']);
+    assert.equal(parseLine(JSON.stringify({ ...entry, ts: '2026-10-05T18:00:00Z' })).ts, Date.parse('2026-10-05T18:00:00Z'));
+    // Caddy's own runtime lines, broken JSON and a missing status are not requests.
+    assert.equal(parseLine('{"level":"info","ts":1,"logger":"tls.obtain","msg":"certificate obtained"}'), null);
+    assert.equal(parseLine('{"request": {'), null);
+    assert.equal(parseLine(JSON.stringify({ ...entry, status: undefined })), null);
+});
+
+test('log: the same requests as Caddy JSON read exactly like the combined log', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-caddy-'));
+    try {
+        const caddyLogs = [];
+        for (const [i, file] of LOGS.entries()) {
+            const text = /\.gz$/.test(file) ? gunzipSync(readFileSync(file)).toString('utf8') : readFileSync(file, 'utf8');
+            const out = text.split('\n').filter(Boolean).map(line => {
+                const q = parseLine(line);
+                if (!q) return line;   // the fixture's junk line stays junk
+                const headers = {};
+                if (q.ua !== '-') headers['User-Agent'] = [q.ua];
+                if (q.referer !== '-') headers.Referer = [q.referer];
+                return JSON.stringify({ level: 'info', ts: q.ts / 1000, logger: 'http.log.access.log0', msg: 'handled request',
+                    request: { remote_ip: q.ip, remote_port: '1', proto: 'HTTP/1.1', method: q.method, host: 'example.org', uri: q.target, headers },
+                    status: q.status, size: 1 });
+            });
+            caddyLogs.push(join(dir, `caddy-${i}.log`));
+            writeFileSync(caddyLogs.at(-1), out.join('\n') + '\n');
+        }
+        const verifier = await fixtureVerifier();
+        const combined = await digest({ logs: LOGS, verifier, ...LOG_OPTS });
+        const caddy = await digest({ logs: caddyLogs, verifier, ...LOG_OPTS });
+        assert.deepEqual(caddy.log, combined.log);
+        assert.equal(caddy.log.people.total, 6);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
 });
 
 test('classifySource: utm_source beats the Referer, AI before search, internal and direct', () => {

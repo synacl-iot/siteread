@@ -61,7 +61,7 @@ Options: `--no-cache` refetches every list now (a failed fetch still falls back 
 ## Digest (for the `seo-read` skill)
 
 `digest` reads a Search Console export (the Performance → Export → Download CSV zip) and your
-access logs (nginx/Apache combined, `.gz` fine) and prints one JSON document: weekly GSC totals with
+access logs (nginx/Apache combined or Caddy's JSON, `.gz` fine) and prints one JSON document: weekly GSC totals with
 impression-weighted position, people by first-touch source (an IP that sent a browser UA, loaded
 an asset and never probed a scanner path), goal counts, and every crawler checked against its
 vendor's list.

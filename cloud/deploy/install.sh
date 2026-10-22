@@ -12,7 +12,7 @@
 #   3. Caddy from Debian (its security updates come with unattended-upgrades) as the TLS proxy.
 #   4. The `siteread` system user. It owns only its data dir; the code is root's, read-only to it.
 #   5. /etc/siteread/env (0600) with an operator token made here, kept on later runs.
-#   6. The two units and the Caddyfile from the release, the firewall opened for 80/443.
+#   6. The units, the Caddyfile and siteread.dev's log folder; the firewall opened for 80/443.
 #   7. `current` switched to the release, the services restarted and checked; 5 releases kept.
 
 set -euo pipefail
@@ -62,6 +62,8 @@ say "caddy: $(caddy version | cut -d' ' -f1)"
 id siteread >/dev/null 2>&1 || useradd --system --home-dir /var/lib/siteread --no-create-home --shell /usr/sbin/nologin siteread
 install -d -m 0755 -o root -g root /srv/siteread /srv/siteread/releases
 install -d -m 0700 -o root -g root /etc/siteread
+# siteread.dev's own access log (HOSTING.md, requirement 2): the proxy writes it, root reads it.
+install -d -m 0700 -o caddy -g caddy /var/log/siteread
 
 # 5. Secrets. systemd reads the file as root before it drops to the service user.
 if [ ! -f /etc/siteread/env ]; then
@@ -76,8 +78,10 @@ fi
 chmod 0600 /etc/siteread/env
 
 # 6. Units, proxy, firewall.
-install -m 0644 "$DEPLOY/siteread-cloud.service" "$DEPLOY/siteread-site.service" /etc/systemd/system/
+install -m 0644 "$DEPLOY/siteread-cloud.service" "$DEPLOY/siteread-site.service" \
+    "$DEPLOY/siteread-log-prune.service" "$DEPLOY/siteread-log-prune.timer" /etc/systemd/system/
 systemctl daemon-reload
+systemctl enable --now siteread-log-prune.timer >/dev/null 2>&1
 install -m 0644 "$DEPLOY/Caddyfile" /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || { caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; exit 1; }
 systemctl reload-or-restart caddy

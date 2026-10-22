@@ -18,7 +18,7 @@ one message.
 | Input | What it is | If missing |
 |---|---|---|
 | Search Console export | the zip (or the folder it unzips to) from Search Console → Performance → set the range to **Last 28 days** → Export → **Download CSV** | ask; the read can run on the log alone, so say what will be missing |
-| Access log | nginx or Apache "combined" format; `.gz` rotations are fine; pass every file that covers the period | ask; the read can run on GSC alone |
+| Access log | nginx or Apache "combined" format, or Caddy's JSON access log (siteread 0.3 or later); `.gz` rotations are fine; pass every file that covers the period | ask; the read can run on GSC alone |
 | Site host | e.g. `example.org` | the digest guesses it and warns; confirm the guess |
 | Sitemap | a local copy of `sitemap.xml` | optional; without it crawler counts include every page fetch |
 | Goals | what a reader *doing something* looks like in the log, e.g. a signup `POST /signup` 201 | optional; ask once |
@@ -40,7 +40,7 @@ saved: take the newest export zip or folder in the directory, and confirm it if 
 A goal regex is matched against `METHOD /path status`, so "a POST to /signup that returns 2xx" is
 `^POST /signup 2`.
 
-If a log line format is not combined (the digest warns when most lines don't parse), say so and
+If a log line format is neither combined nor Caddy's JSON (the digest warns when most lines don't parse), say so and
 ask the user how their server logs; don't guess a format.
 
 ## 2. Run the digest

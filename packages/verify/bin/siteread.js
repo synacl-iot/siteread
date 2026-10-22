@@ -40,7 +40,7 @@ Options:
 
 Digest options (at least one of --gsc / --log):
   --gsc <zip|dir>        Search Console Performance export (Export -> Download CSV)
-  --log <file>           access log, nginx/Apache combined, .gz ok (repeat for several)
+  --log <file>           access log: nginx/Apache combined or Caddy JSON, .gz ok (repeat for several)
   --site <host>          your site's host (guessed from Referers otherwise)
   --sitemap <file>       a local sitemap.xml: count crawler fetches on its URLs only
   --from / --to <day>    keep only log days in this range (YYYY-MM-DD)

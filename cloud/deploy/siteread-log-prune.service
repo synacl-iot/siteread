@@ -1,0 +1,8 @@
+# Keeps siteread.dev's access log to 28 days (prune-log.sh). Started by siteread-log-prune.timer.
+
+[Unit]
+Description=Keep siteread.dev's access log to 28 days
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /srv/siteread/current/cloud/deploy/prune-log.sh
