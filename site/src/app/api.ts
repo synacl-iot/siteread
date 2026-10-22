@@ -38,31 +38,13 @@ export interface NamedRow {
   metrics: Record<string, { value: number; percentile?: number }>;
 }
 
-/** GET /v1/operator/status (the hosted service's operator status). Counts only. */
-export interface OperatorStatus {
-  ok: true;
-  siteread: string;
-  now: string;
-  feed: { generatedAt: string; lists: { agent: string; prefixes: number; fetchedAt: string; ageHours: number }[] } | null;
-  lastFeedRun:
-    | { at: string; fetched?: string[]; failed?: string[]; dropped?: string[]; errors?: Record<string, string>; error?: string }
-    | null;
-  benchmark: {
-    generatedAt: string;
-    sites: number;
-    window: { from: string; to: string } | null;
-    history: { week: string; sites: number }[];
-    named: { label: string; week: string | null }[];
-  } | null;
-  newSites: { day: string; sites: number }[];
-  /** New sites today and the proof of work a new site needs right now, in bits (it rises with them). */
-  newSitesToday: { sites: number; proofBits: number };
-  /** Per day: shares taken and refused by code, requests by route and kind of client, siteread versions. */
-  requests: {
-    day: string;
-    taken: number;
-    refused: Record<string, number>;
-    hits?: Record<string, Record<string, number>>;
-    versions?: Record<string, number>;
-  }[];
+/** GET /v1/account and the other /v1/account routes: the signed-in account. Never its email. */
+export interface AccountView {
+  plan: string;
+  createdOn: string;
+  verifiedOn: string | null;
+  /** The live key's first 8 characters and an ellipsis, or null when there is none. */
+  key: string | null;
+  /** Linked share ids. */
+  sites: string[];
 }

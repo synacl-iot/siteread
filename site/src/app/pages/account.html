@@ -1,0 +1,82 @@
+<main class="wrap page tight account">
+
+  @if (error()) {
+    <p class="notice" role="alert">{{ error() }}</p>
+  }
+
+  @if (!api.session()) {
+    <section class="stack acct-form">
+      <h1 class="display h2">Your account</h1>
+      <p class="muted">Using siteread needs no account, and neither does <code>share</code>. An account holds an API key and links your sites by their share id.</p>
+      @if (sent()) {
+        <p class="notice" role="status">{{ sent() }} It works once, for 30 minutes.</p>
+      } @else {
+        <form class="stack" (submit)="start($event, email)">
+          <label for="acct-email">Email</label>
+          <input #email id="acct-email" name="email" type="email" autocomplete="email" class="input" required>
+          <button type="submit" class="btn primary" [disabled]="busy()">Email me a sign-in link</button>
+          <span class="small muted">No password. The address is kept apart from your numbers and deleted with the account.</span>
+        </form>
+      }
+    </section>
+  } @else if (account(); as a) {
+    <section class="row between">
+      <h1 class="display h2">Your account</h1>
+      <button type="button" class="btn" (click)="signOut()">Sign out</button>
+    </section>
+
+    <section class="acct-cards">
+      <div class="card">
+        <span class="small muted">Plan</span>
+        <span class="mono acct-value">{{ a.plan }}</span>
+      </div>
+      <div class="card">
+        <span class="small muted">Since</span>
+        <span class="mono acct-value">{{ a.createdOn }}</span>
+      </div>
+      <div class="card">
+        <span class="small muted">Sites linked</span>
+        <span class="mono acct-value">{{ a.sites.length }}</span>
+      </div>
+    </section>
+
+    <section class="stack">
+      <h2 class="display h2 small">API key</h2>
+      @if (newKey()) {
+        <p class="notice" role="status">Copy it now: it is not shown again.</p>
+        <div class="row">
+          <code class="code small acct-key">{{ newKey() }}</code>
+          <app-copy [text]="newKey()" label="Copy the key" />
+        </div>
+      } @else {
+        <p class="muted">{{ a.key ? 'Your key starts ' + a.key : 'You have no key yet.' }}</p>
+      }
+      <button type="button" class="btn start" (click)="makeKey()" [disabled]="busy()">{{ a.key ? 'Make a new key' : 'Make a key' }}</button>
+    </section>
+
+    <section class="stack">
+      <h2 class="display h2 small">Your sites</h2>
+      <p class="muted">Link a site by the share id siteread keeps in <code>.siteread/share-id</code>. The id is all the service knows about a site; it never learns its name.</p>
+      @if (a.sites.length) {
+        <ul class="acct-sites">
+          @for (id of a.sites; track id) {
+            <li><code class="mono">{{ id }}</code> <button type="button" class="btn" (click)="unlink(id)" [disabled]="busy()">Unlink</button></li>
+          }
+        </ul>
+      }
+      <form class="row acct-form" (submit)="link($event, siteId)">
+        <label for="acct-site" class="visually-hidden">Share id</label>
+        <input #siteId id="acct-site" class="input mono" placeholder="32 letters and digits" autocomplete="off" spellcheck="false" maxlength="32">
+        <button type="submit" class="btn" [disabled]="busy()">Link</button>
+      </form>
+    </section>
+
+    <section class="stack danger">
+      <h2 class="display h2 small">Delete the account</h2>
+      <p class="muted">Deletes your email, key and links at once. The weeks you shared stay in the benchmark, anonymous as they always were.</p>
+      <button type="button" class="btn bad-btn start" (click)="remove()" [disabled]="busy()">Delete my account</button>
+    </section>
+  } @else if (!error()) {
+    <p class="muted">Loading…</p>
+  }
+</main>

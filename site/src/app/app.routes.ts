@@ -13,7 +13,8 @@ export const routes: Routes = [
   },
   { path: 'docs', component: Docs, title: 'Docs · siteread' },
   { path: 'privacy', component: Privacy, title: 'What siteread sends · siteread' },
-  // Lazy: the operator page is the one bundle a visitor never needs.
-  { path: 'operator', loadComponent: () => import('./pages/operator').then(m => m.Operator), title: 'Operator · siteread' },
+  // Lazy: most visitors never need the account pages. Not linked from the navigation yet.
+  { path: 'account', loadComponent: () => import('./pages/account').then(m => m.AccountPage), title: 'Your account · siteread' },
+  { path: 'account/verify', loadComponent: () => import('./pages/account-verify').then(m => m.AccountVerify), title: 'Signing in · siteread' },
   { path: '**', component: NotFound, title: 'Not found · siteread' },
 ];

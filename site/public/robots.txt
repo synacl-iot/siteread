@@ -1,4 +1,4 @@
 User-agent: *
-Disallow: /operator
+Disallow: /account
 
 Sitemap: https://siteread.dev/sitemap.xml

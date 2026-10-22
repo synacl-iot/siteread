@@ -11,7 +11,7 @@ cap is spent, stop and say so.
 | `packages/verify/` | npm `siteread`: crawler verification (vendor IP lists + UA table + scanner signatures), CLI |
 | `plugins/siteread/` | Claude Code plugin `siteread` with the skill `seo-read`: GSC export + log → weekly memo (phase 2); the repo root's `.claude-plugin/marketplace.json` makes this repo its marketplace. Bump `plugin.json`'s `version` whenever the skill changes: installs update only on a new version |
 | (none) | the hosted service behind siteread.dev and api.siteread.dev (list feed, `share` endpoint, aggregate job, deploy) is closed source, in the private repo `synacl-iot/siteread-cloud`, which pins this repo as a submodule |
-| `site/` | siteread.dev in Angular 22, no SSR server (the owner's call): public pages prerendered at build, served as static files by Caddy: home, benchmark with `n`, docs from the READMEs, privacy, private operator page (phase 3) |
+| `site/` | siteread.dev in Angular 22, no SSR server (the owner's call): public pages prerendered at build, served as static files by Caddy: home, benchmark with `n`, docs from the READMEs, privacy, the account page (client-only, `noindex`; the operator page became the private repo's admin panel, 2026-10-22) |
 
 ## Starting a session here
 

@@ -86,6 +86,6 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 
 - Prompt-tracking / "does ChatGPT mention my brand" (Profound, Peec, Otterly do this; we read logs).
 - Blocking or rate-limiting crawlers (Cloudflare does this).
-- A dashboard. The output is a memo. (The private operator page on siteread.dev shows the service's own health to
-  its operator; it is not a product feature.)
+- A dashboard. The output is a memo. (The service's private admin panel shows its own health to its operator; it
+  is not a product feature.)
 - Any feature that needs hostnames or visitor IPs to leave the user's machine.
