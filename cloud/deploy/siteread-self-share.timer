@@ -1,10 +1,11 @@
 [Unit]
-Description=Weekly: siteread.dev shares its own week
+Description=Daily: siteread.dev shares its latest 7 days
 
 [Timer]
-# Monday, after Sunday has ended in Search Console's zone (the digest's default), and after the
-# daily log prune.
-OnCalendar=Mon *-*-* 09:00:00 UTC
+# Daily, so the row shows the day the log first holds a full week and stays on the latest 7 days:
+# a share is labelled by its window's middle day, and a second share of a week replaces the first.
+# 09:00 UTC is after midnight in Search Console's zone (the digest's default) and the log prune.
+OnCalendar=*-*-* 09:00:00 UTC
 Persistent=true
 
 [Install]

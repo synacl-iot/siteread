@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Weekly, as root (siteread-self-share.timer): siteread.dev shares its own week to its own benchmark.
+# Daily, as root (siteread-self-share.timer): siteread.dev shares its latest 7 days to its own
+# benchmark (a share of a week it already shared replaces that one).
 #
 # Nothing leaves the server for this: the digest reads /var/log/siteread here and the share goes to
 # the service on loopback. Log numbers only: the Search Console export lives on the owner's

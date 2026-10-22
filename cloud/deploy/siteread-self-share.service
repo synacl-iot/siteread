@@ -1,7 +1,7 @@
-# siteread.dev shares its own week (self-share.sh). Started by siteread-self-share.timer.
+# siteread.dev shares its latest 7 days (self-share.sh). Started daily by siteread-self-share.timer.
 
 [Unit]
-Description=siteread.dev shares its own week to its benchmark
+Description=siteread.dev shares its latest 7 days to its benchmark
 After=siteread-cloud.service
 Requires=siteread-cloud.service
 
