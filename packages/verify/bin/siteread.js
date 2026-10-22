@@ -400,7 +400,7 @@ async function cmdShare({ flags, opts, pos }) {
         return 1;
     }
     // Where each number falls among the quartiles the benchmark publishes, and only where it
-    // publishes them: the service never answers finer than the public page (cloud/src/benchmark.js).
+    // publishes them: the service never answers finer than the public page (its benchmark aggregate).
     const a = r.against;
     const min = Number(a?.minSites) || 10;
     const rows = Object.entries(r.metrics ?? {}).filter(([, m]) => m && typeof m === 'object');
