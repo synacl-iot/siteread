@@ -41,6 +41,8 @@ cap is spent, stop and say so.
   code came from: no "ported from" credits in code, READMEs, package metadata or the charter (owner, 2026-10-21).
   A measured story names "one site", not synacl.com.
 - Never send hostnames, URLs or visitor IPs anywhere. `share` prints the exact payload before sending.
+- On the VM, only `siteread.dev` keeps an access log (28 days, the owner's call); `api.siteread.dev` and `www` never
+  log, and no error log may carry a client address (Caddy's `http` loggers stay excluded). `cloud/HOSTING.md` has why.
 - Vendor lists are fetched from the vendors by default; the feed is an opt-in override until it exists.
 - Keep the WHY comments: they are the product knowledge (the 444 rule, the ClaudeBot
   README-link incident, Claude-User from claude-code being the user's own IP, Google-Extended never being a UA).

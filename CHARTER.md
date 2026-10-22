@@ -68,6 +68,10 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
   4 weeks compared, a random per-site id kept in `.siteread/share-id`. Decided 2026-10-22 by the owner: the benchmark
   publishes the 25th/50th/75th percentiles only, from 10 anonymous sites per metric (five percentiles from 5 sites gave
   every value back); synacl.com is the named row, live from its own share.
+- ~~Does siteread read its own site?~~ decided 2026-10-22 by the owner: yes. `siteread.dev` keeps an access log (Caddy
+  JSON, root-only on the VM, every line deleted after 28 days; `cloud/deploy/pull-log.sh` mirrors it for the weekly
+  read). `api.siteread.dev` and `www` keep none, so a share or a feed fetch is never tied to an address. The privacy
+  page says so.
 - ~~Site look~~ decided 2026-10-22 by the owner: **A · Ledger** (cool slate, teal and orange, expanded grotesk, numbers
   in mono), from six directions on a private mockup canvas (https://claude.ai/artifact/TLSBMYHxqw5NKxpYWnVXaK). `site/`
   is Angular 22 with SSR (owner's pick), built on the owner's machine with only `dist/` shipped. Still open: whether the
