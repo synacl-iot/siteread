@@ -40,7 +40,10 @@ Options:
 
 Digest options (at least one of --gsc / --log):
   --gsc <zip|dir>        Search Console Performance export (Export -> Download CSV)
-  --log <file>           access log: nginx/Apache combined or Caddy JSON, .gz ok (repeat for several)
+  --log <file>           access log: nginx/Apache combined, Caddy JSON or nginx JSON, .gz ok
+                         (repeat for several)
+  --host <name>          keep only requests to this host, for a log of several sites (repeatable;
+                         JSON logs carry the host, combined does not)
   --site <host>          your site's host (guessed from Referers otherwise)
   --sitemap <file>       a local sitemap.xml: count crawler fetches on its URLs only
   --from / --to <day>    keep only log days in this range (YYYY-MM-DD)
@@ -75,7 +78,7 @@ Nothing leaves this machine except GETs of the vendors' public IP lists, and a s
 
 // Options that take a value (digest only). Each keeps every value given, in order.
 const VALUE_OPTS = new Set(['--gsc', '--log', '--out', '--site', '--sitemap', '--from', '--to', '--split', '--goal',
-    '--team-path', '--exclude-ip', '--allow-path', '--tz', '--prev', '--limit', '--endpoint', '--id-file']);
+    '--team-path', '--exclude-ip', '--allow-path', '--tz', '--prev', '--limit', '--endpoint', '--id-file', '--host']);
 
 function parseArgs(argv) {
     const flags = new Set();
@@ -234,6 +237,7 @@ async function cmdDigest({ flags, opts, pos }) {
         site: one('--site'), tz, from: one('--from'), to: one('--to'), goals,
         teamPath: re('--team-path'), allowPath: re('--allow-path'),
         excludeIps: new Set((opts.get('--exclude-ip') ?? []).flatMap(s => s.split(',')).map(s => s.trim()).filter(Boolean)),
+        hosts: opts.get('--host') ?? [],
     });
     if (verifier) out.vendorLists = verifier.lists().map(({ agent, prefixes, fetchedAt }) => ({ agent, prefixes, fetchedAt }));
     for (const w of out.warnings) process.stderr.write(`siteread: ${w}\n`);

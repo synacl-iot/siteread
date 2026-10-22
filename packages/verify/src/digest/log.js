@@ -1,5 +1,5 @@
-// An access log (nginx / Apache "combined", or Caddy's JSON; plain or .gz) → people, sources and
-// crawlers.
+// An access log (nginx / Apache "combined", Caddy's JSON or an nginx JSON log_format; plain or .gz)
+// → people, sources and crawlers. A file that holds several sites is cut to one with `hosts`.
 //
 // Who counts as a person is the rule one site settled on after its first counts were wrong
 // (2026-09-28, stricter than the read a week earlier, so compare only reads made the same way):
@@ -40,18 +40,43 @@ const GENERIC_BOT_RE = /bot\b|bot\/|crawl|spider|slurp|fetch|scan|curl\/|wget\/|
 export const CLOUD_FIRST_OCTETS = Object.freeze([3, 13, 15, 16, 18, 34, 35, 44, 52, 54]);
 const CLOUD = new Set(CLOUD_FIRST_OCTETS);
 
-/** One access-log line, combined or Caddy JSON (a line that starts with "{"), → request, or null. */
+/** "05/Oct/2026:20:00:00 +0200" (nginx $time_local, Apache %t) → ms, or NaN. */
+function clfTime(s) {
+    const t = /^(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})$/.exec(s);
+    if (!t || !(t[2] in MONTHS)) return NaN;
+    const off = (t[7] === '-' ? -1 : 1) * (Number(t[8]) * 60 + Number(t[9]));
+    return Date.UTC(+t[3], MONTHS[t[2]], +t[1], +t[4], +t[5], +t[6]) - off * 60_000;
+}
+
+/**
+ * One access-log line → { ip, ts, method, target, status, referer, ua, host }, or null. Combined
+ * format, or a JSON object per line: Caddy's (it has a `request` object) or an nginx log_format.
+ * `host` is null when the format does not carry one (combined).
+ */
 export function parseLine(line) {
-    if (line.charCodeAt(0) === 123) return parseCaddyLine(line);
+    if (line.charCodeAt(0) === 123) return parseJsonLine(line);
     const m = LINE_RE.exec(line);
     if (!m) return null;
     const [, ip, time, method, target, status, referer = '-', ua = '-'] = m;
-    const t = /^(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})$/.exec(time);
-    if (!t || !(t[2] in MONTHS)) return null;
-    const off = (t[7] === '-' ? -1 : 1) * (Number(t[8]) * 60 + Number(t[9]));
-    const ts = Date.UTC(+t[3], MONTHS[t[2]], +t[1], +t[4], +t[5], +t[6]) - off * 60_000;
+    const ts = clfTime(time);
+    if (!Number.isFinite(ts)) return null;
     const unesc = s => s.replace(/\\x22/g, '"').replace(/\\"/g, '"');
-    return { ip, ts, method, target, status: Number(status), referer: unesc(referer), ua: unesc(ua) };
+    return { ip, ts, method, target, status: Number(status), referer: unesc(referer), ua: unesc(ua), host: null };
+}
+
+// nginx writes JSON by hand from a log_format. With `escape=json` it is valid JSON; with the
+// default escaping a quote or a non-ASCII byte comes out as \xHH, which JSON does not allow, so a
+// line that fails is read again with those as \u00HH.
+function parseJsonObject(line) {
+    try { return JSON.parse(line); } catch { /* try the nginx default escaping */ }
+    if (!line.includes('\\x')) return null;
+    try { return JSON.parse(line.replace(/\\x([0-9a-fA-F]{2})/g, '\\u00$1')); } catch { return null; }
+}
+
+function parseJsonLine(line) {
+    const e = parseJsonObject(line);
+    if (!e || typeof e !== 'object' || Array.isArray(e)) return null;
+    return e.request && typeof e.request === 'object' ? caddyEntry(e) : nginxEntry(e);
 }
 
 // Caddy writes its access log as JSON (the `log` directive's default) and cannot write "combined"
@@ -59,19 +84,63 @@ export function parseLine(line) {
 // has no 444, so a scanner there shows by its path alone, which the 444 rule reads anyway.
 // `client_ip` (Caddy ≥ 2.7, after trusted proxies) wins over `remote_ip`; `ts` is Unix seconds
 // unless the log was configured with another time format.
-/** One Caddy JSON access-log entry → request, or null. */
-export function parseCaddyLine(line) {
-    let e;
-    try { e = JSON.parse(line); } catch { return null; }
-    const r = e?.request;
-    if (!r || typeof r !== 'object') return null;
+function caddyEntry(e) {
+    const r = e.request;
     const ip = r.client_ip || r.remote_ip;
     const ts = typeof e.ts === 'number' ? Math.round(e.ts * 1000) : Date.parse(e.ts);
     if (typeof ip !== 'string' || !ip || !Number.isFinite(ts) || typeof r.method !== 'string' || typeof r.uri !== 'string'
         || !Number.isInteger(e.status)) return null;
     const first = k => (Array.isArray(r.headers?.[k]) && typeof r.headers[k][0] === 'string' ? r.headers[k][0] : '-');
-    return { ip, ts, method: r.method, target: r.uri, status: e.status, referer: first('Referer'), ua: first('User-Agent') };
+    return { ip, ts, method: r.method, target: r.uri, status: e.status, referer: first('Referer'), ua: first('User-Agent'), host: str(r.host) };
 }
+
+// An nginx JSON log_format names its fields as its author chose. These are the names in common use
+// for each, first match wins: the variable's own name (remote_addr, http_user_agent) or a short one
+// (ip, user_agent). The target is the raw $request_uri where there is one, since a scanner path
+// is read undecoded; $uri is decoded, so it is the fallback, with $args put back.
+const NGINX = {
+    ip: ['remote_addr', 'client_ip', 'remote_ip', 'ip', 'client', 'clientip'],
+    time: ['time', 'time_iso8601', 'timestamp', '@timestamp', 'time_local', 'msec', 'ts'],
+    method: ['method', 'request_method'],
+    target: ['request_uri'],
+    uri: ['uri', 'path'],
+    args: ['args', 'query_string'],
+    status: ['status', 'status_code', 'response'],
+    referer: ['referer', 'http_referer', 'referrer', 'http_referrer'],
+    ua: ['user_agent', 'http_user_agent', 'agent', 'useragent', 'ua'],
+    host: ['host', 'http_host', 'server_name', 'vhost', 'hostname'],
+};
+const str = v => (typeof v === 'string' && v !== '' ? v : null);
+const pick = (e, keys) => { for (const k of keys) { const v = e[k]; if (v != null && v !== '') return v; } return null; };
+
+function nginxEntry(e) {
+    const ip = str(pick(e, NGINX.ip));
+    if (!ip) return null;
+    let method = str(pick(e, NGINX.method));
+    let target = str(pick(e, NGINX.target));
+    if (!target) {
+        const uri = str(pick(e, NGINX.uri));
+        const args = str(pick(e, NGINX.args));
+        if (uri) target = args && args !== '-' ? `${uri}?${args}` : uri;
+    }
+    // Or the request line itself, "GET /path?q HTTP/1.1" ($request).
+    const line = typeof e.request === 'string' ? /^(\S+) (\S+)/.exec(e.request) : null;
+    if (line) { method ??= line[1]; target ??= line[2]; }
+    const t = pick(e, NGINX.time);
+    // $msec is seconds with a fraction; a number that large is already milliseconds.
+    const ts = typeof t === 'number' ? Math.round(t < 1e11 ? t * 1000 : t)
+        : typeof t === 'string' ? (/^\d+(\.\d+)?$/.test(t) ? Math.round(Number(t) * 1000) : Date.parse(t) || clfTime(t)) : NaN;
+    const rawStatus = pick(e, NGINX.status);
+    const status = rawStatus == null ? NaN : Number(rawStatus);   // Number(null) would be a status 0
+    if (!method || !target || !Number.isFinite(ts) || !Number.isInteger(status)) return null;
+    return {
+        ip, ts, method, target, status,
+        referer: str(pick(e, NGINX.referer)) ?? '-', ua: str(pick(e, NGINX.ua)) ?? '-', host: str(pick(e, NGINX.host)),
+    };
+}
+
+/** A host as a filter compares it: lower case, no port, no trailing dot. */
+export const normHost = h => String(h).trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
 
 /** Day (YYYY-MM-DD) of a timestamp in an IANA zone. */
 export function dayIn(tz) {
@@ -97,18 +166,21 @@ function top(map, limit) {
  * @param {RegExp} [o.teamPath]     an IP that got a 2xx on such a path is the site's own team
  * @param {Set<string>} [o.excludeIps]
  * @param {RegExp} [o.allowPath]    a site's own paths that look like scanner probes
+ * @param {string[]} [o.hosts]      keep only requests to these hosts (a log of several sites);
+ *                                  a line whose format carries no host is kept and counted
  */
 export function createLogDigest({
     site = null, tz = 'America/Los_Angeles', from = null, to = null, sitemap = null,
-    goals = [], teamPath = null, excludeIps = new Set(), allowPath = null, limit = 15,
+    goals = [], teamPath = null, excludeIps = new Set(), allowPath = null, limit = 15, hosts = [],
 } = {}) {
+    const keepHosts = hosts.length ? new Set(hosts.map(normHost)) : null;
     const day = dayIn(tz);
     const ips = new Map();       // ip → per-IP facts
     const crawl = new Map();     // `${agent}\t${ip}` → { agent, ip, ua, requests, pages: Map(day → [path]) }
     const generic = { requests: 0, ips: new Set(), uas: new Map() };
     const scannerPaths = new Map();
     const refHosts = new Map();
-    let lines = 0, unparsed = 0, outOfRange = 0, firstDay = null, lastDay = null;
+    let lines = 0, unparsed = 0, outOfRange = 0, otherHost = 0, noHost = 0, firstDay = null, lastDay = null;
 
     function ipRec(ip) {
         let r = ips.get(ip);
@@ -123,6 +195,10 @@ export function createLogDigest({
         lines++;
         const q = parseLine(line);
         if (!q) { unparsed++; return; }
+        if (keepHosts) {
+            if (q.host == null) noHost++;
+            else if (!keepHosts.has(normHost(q.host))) { otherHost++; return; }
+        }
         const d = day(q.ts);
         if ((from && d < from) || (to && d > to)) { outOfRange++; return; }
         if (!firstDay || d < firstDay) firstDay = d;
@@ -171,8 +247,9 @@ export function createLogDigest({
     }
 
     function finish(verifier) {
-        // The site's own host: given, or the Referer host browsers' asset loads carry most.
-        const siteHost = site ? site.replace(/^www\./, '') : (top(refHosts, 1)[0]?.[0] ?? null);
+        // The site's own host: given, the first --host, or the Referer host asset loads carry most.
+        const given = site ?? hosts[0] ?? null;
+        const siteHost = given ? normHost(given).replace(/^www\./, '') : (top(refHosts, 1)[0]?.[0] ?? null);
 
         // People.
         const people = [];
@@ -323,8 +400,8 @@ export function createLogDigest({
 
         return {
             range: { from: firstDay, to: lastDay, tz },
-            site: { host: siteHost, guessed: !site },
-            lines: { total: lines, unparsed, outOfRange },
+            site: { host: siteHost, guessed: !given },
+            lines: { total: lines, unparsed, outOfRange, otherHost, noHost },
             people: {
                 total: people.length,
                 perDay: dayList,

@@ -61,7 +61,7 @@ Options: `--no-cache` refetches every list now (a failed fetch still falls back 
 ## Digest (for the `seo-read` skill)
 
 `digest` reads a Search Console export (the Performance → Export → Download CSV zip) and your
-access logs (nginx/Apache combined or Caddy's JSON, `.gz` fine) and prints one JSON document: weekly GSC totals with
+access logs (nginx/Apache combined, Caddy's JSON, or an nginx JSON `log_format`; `.gz` fine) and prints one JSON document: weekly GSC totals with
 impression-weighted position, people by first-touch source (an IP that sent a browser UA, loaded
 an asset and never probed a scanner path), goal counts, and every crawler checked against its
 vendor's list.
@@ -71,6 +71,13 @@ $ npx siteread digest --gsc export.zip --log access.log.1.gz --log access.log \
     --site example.org --sitemap sitemap.xml --goal 'signup=^POST /signup 2' --out .siteread/digests
 .siteread/digests/2026-10-18.json
 ```
+
+A JSON log that holds several sites (one nginx serving an API, an app and a blog) is cut to one
+with `--host`, repeated for each name (`www.` is a different host). Combined lines carry no host,
+so `--host` keeps them and says so. For nginx JSON, the common field names are read
+(`remote_addr`, `request_uri` or `request`, `status`, `time`/`time_iso8601`/`time_local`/`msec`,
+`http_user_agent` or `user_agent`, `http_referer` or `referer`, `host` or `http_host`), with
+`escape=json` or nginx's default escaping.
 
 `npx siteread --help` lists every option. The skill in [`skill/`](../../skill/README.md) turns
 the JSON into a weekly memo.
