@@ -1,8 +1,8 @@
 # siteread.dev
 
 The public site (home, benchmark, docs, privacy) and the private operator page, in Angular 22
-with server-side rendering. Its npm dependencies live in this folder only: `packages/verify` and
-`cloud/` stay at zero. Node `^22.22.3 || ^24.15 || >=26`, for this folder alone.
+with server-side rendering. Its npm dependencies live in this folder only: `packages/verify` stays at
+zero. Node `^22.22.3 || ^24.15 || >=26`, for this folder alone.
 
 ```sh
 npm ci
@@ -40,8 +40,8 @@ for `npm start`).
 ## Deploy
 
 Built on the owner's machine; only `dist/site/` goes to the server, which needs no `node_modules`:
-`node --max-old-space-size=96 server/server.mjs` from inside it. Memory, caps and the proxy are in
-[`../cloud/HOSTING.md`](../cloud/HOSTING.md).
+`node --max-old-space-size=96 server/server.mjs` from inside it. Memory, caps, the proxy and the
+deploy itself are in the hosted service's private repo.
 
 ## Privacy
 

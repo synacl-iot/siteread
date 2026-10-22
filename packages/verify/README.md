@@ -303,6 +303,23 @@ All of them answer `{ "creationTime": …, "prefixes": [{ "ipv4Prefix": … } | 
   from vouching for a whole provider's range. From the feed, a refused list is fetched from its
   vendor instead.
 
+## The feed
+
+`https://api.siteread.dev/v1/lists.json` (`FEED_URL`) is every vendor list above in one document,
+rebuilt from the vendors every 6 h by the hosted service:
+
+```json
+{ "siteread": "0.2.1", "generatedAt": "2026-10-21T17:28:48.171Z",
+  "lists": { "claudebot": { "prefixes": ["216.73.216.0/22", "…"], "fetchedAt": "2026-10-21T17:28:46.433Z",
+                            "source": "https://claude.com/crawling/bots.json" }, "…": {} } }
+```
+
+It is built by the package's verifier, so it keeps the package's rules: a failed vendor fetch keeps
+the previous copy with its old `fetchedAt`, a copy nobody could refresh for 8 days is dropped, every
+prefix is bounded and re-validated. `fetchedAt` is when the feed got the list from the vendor, and
+the client keeps that time, so its 24 h / 8 day rules measure the vendor data's age, not the hop.
+Every run refetches: a client takes a feed copy only when it is newer than its own.
+
 ## Privacy
 
 Local use sends nothing anywhere except plain GETs of public crawler lists, with the User-Agent
@@ -315,8 +332,8 @@ exception: opt-in, its exact payload printed first, aggregate numbers only.
 
 `feedUrl` points the verifier at one merged document,
 `{ "lists": { "<agent>": { "prefixes": [...], "fetchedAt": "..." } } }`, instead of the vendors: the
-hosted feed is `https://api.siteread.dev/v1/lists.json` (`FEED_URL`, this repo's `cloud/`, rebuilt
-from the vendors every 6 h). The CLI uses it by default with `fallback: true`, which fetches from the
+hosted feed is `https://api.siteread.dev/v1/lists.json` (`FEED_URL`, the hosted service, rebuilt
+from the vendors every 6 h; see The feed below). The CLI uses it by default with `fallback: true`, which fetches from the
 vendors whatever the feed could not give; the library leaves both off unless you pass them. Every
 prefix from a feed is re-validated like a vendor's, and a `fetchedAt` in the future is clamped to
 now.

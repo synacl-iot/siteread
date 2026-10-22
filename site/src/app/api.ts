@@ -8,7 +8,7 @@ export const PUBLIC_API = typeof SITEREAD_API === 'string' ? SITEREAD_API : 'htt
 
 export const API_BASE = new InjectionToken<string>('API_BASE', { factory: () => PUBLIC_API });
 
-/** GET /v1/benchmark.json (cloud/src/benchmark.js `aggregate`). */
+/** GET /v1/benchmark.json (the hosted service's benchmark aggregate). */
 export interface Benchmark {
   siteread: string;
   generatedAt: string;
@@ -38,7 +38,7 @@ export interface NamedRow {
   metrics: Record<string, { value: number; percentile?: number }>;
 }
 
-/** GET /v1/operator/status (cloud/src/app.js `operatorStatus`). Counts only. */
+/** GET /v1/operator/status (the hosted service's operator status). Counts only. */
 export interface OperatorStatus {
   ok: true;
   siteread: string;

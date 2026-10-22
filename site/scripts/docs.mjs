@@ -23,7 +23,7 @@ export const SECTIONS = [
     { id: 'share', title: 'Share', file: 'packages/verify/README.md', heading: 'Share (opt-in)' },
     { id: 'library', title: 'Library', file: 'packages/verify/README.md', heading: 'Library' },
     { id: 'vendor-lists', title: 'Vendor lists', file: 'packages/verify/README.md', heading: 'Vendor lists' },
-    { id: 'feed', title: 'The feed', file: 'cloud/README.md', heading: 'The feed' },
+    { id: 'feed', title: 'The feed', file: 'packages/verify/README.md', heading: 'The feed' },
     { id: 'why', title: 'Why', file: 'packages/verify/README.md', heading: 'Why' },
 ];
 

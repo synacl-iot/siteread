@@ -20,7 +20,7 @@ export const REFUSAL_COLUMNS: readonly { title: string; codes: readonly string[]
 ];
 const KNOWN = new Set(REFUSAL_COLUMNS.flatMap(c => c.codes));
 
-// API requests by route and kind of client (cloud/src/app.js clientOf), as the operator reads them.
+// API requests by route and kind of client (as the hosted service classifies them), as the operator reads them.
 // `local` on the benchmark is this site's own server rendering /benchmark, not a reader.
 export const USAGE_COLUMNS: readonly string[] = [
   'Feed, by siteread', 'Feed, other', 'Benchmark, page renders', 'Benchmark, public', 'Health', 'Other paths',
