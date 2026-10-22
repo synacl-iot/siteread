@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { parseCidr, parseList, normIp, SOURCES, MAX_PREFIXES, AGENTS, CRAWLERS } from '../src/index.js';
-import { buildMatcher } from '../src/ip-ranges.js';
+import { buildMatcher, parsePrefixes } from '../src/ip-ranges.js';
 
 // Fixtures are the vendors' real responses (curl, 2026-10-21), trimmed to a few prefixes each.
 const fixtures = new URL('./fixtures/', import.meta.url);
@@ -13,15 +13,15 @@ test('parseCidr accepts real vendor prefixes and normalises them', () => {
     assert.deepEqual(parseCidr(' 2001:4860:4801:10::/64 '), { type: 'ipv6', net: '2001:4860:4801:10::', prefix: 64, cidr: '2001:4860:4801:10::/64' });
     assert.equal(parseCidr('2001:DB8::/32').cidr, '2001:db8::/32');
     assert.equal(parseCidr('34.162.230.222/32').prefix, 32);
-    assert.equal(parseCidr('10.0.0.0/8').prefix, 8);          // the broadest IPv4 allowed
-    assert.equal(parseCidr('2001:db8::/16').prefix, 16);     // the broadest IPv6 allowed
+    assert.equal(parseCidr('10.0.0.0/16').prefix, 16);       // the broadest IPv4 allowed
+    assert.equal(parseCidr('2001:db8::/32').prefix, 32);     // the broadest IPv6 allowed
 });
 
 test('parseCidr rejects anything that would verify too much, or is not a prefix', () => {
     for (const bad of [
         '0.0.0.0/0', '::/0',                 // would verify every address
-        '10.0.0.0/7', '1.0.0.0/1',           // broader than MIN_PREFIX ipv4 (8)
-        '2001:db8::/15',                     // broader than MIN_PREFIX ipv6 (16)
+        '10.0.0.0/15', '10.0.0.0/8', '1.0.0.0/1',   // broader than MIN_PREFIX ipv4 (16)
+        '2001:db8::/31', '2001:db8::/16',    // broader than MIN_PREFIX ipv6 (32)
         '1.2.3.4/33', '::1/129',             // past the address width
         '1.2.3.4', '1.2.3.4/', '/24',        // no prefix, no address
         '1.2.3.4/24/1', '1.2.3.4/-1', '1.2.3.4/2a', '1.2.3.4/1234',
@@ -46,7 +46,7 @@ test('parseList reads every captured vendor fixture', () => {
 
 test('parseList skips junk, dedupes and stops at MAX_PREFIXES', () => {
     assert.deepEqual(parseList({ prefixes: [
-        { ipv4Prefix: '1.2.3.0/24' }, { ipv4Prefix: '1.2.3.0/24' }, { ipv4Prefix: '0.0.0.0/0' },
+        { ipv4Prefix: '1.2.3.0/24' }, { ipv4Prefix: '1.2.3.0/24' },
         { ipv6Prefix: 'nope' }, null, 'string', { other: '5.6.7.0/24' }, { ipv6Prefix: '2001:db8::/32' },
     ] }), ['1.2.3.0/24', '2001:db8::/32']);
     assert.deepEqual(parseList(null), []);
@@ -56,6 +56,17 @@ test('parseList skips junk, dedupes and stops at MAX_PREFIXES', () => {
     const many = { prefixes: Array.from({ length: MAX_PREFIXES + 50 }, (_, i) =>
         ({ ipv4Prefix: `10.${(i >> 8) & 255}.${i & 255}.0/24` })) };
     assert.equal(parseList(many).length, MAX_PREFIXES);
+});
+
+test('parseList and parsePrefixes refuse a whole list that holds a too-broad prefix', () => {
+    // Trimming it would quietly turn a vendor's real new range into "spoofed"; refusing says so.
+    for (const broad of [{ ipv4Prefix: '0.0.0.0/0' }, { ipv4Prefix: '34.0.0.0/12' }, { ipv6Prefix: '2600::/24' }]) {
+        assert.throws(() => parseList({ prefixes: [{ ipv4Prefix: '1.2.3.0/24' }, broad] }), /is broader than \/(16|32); list refused/);
+    }
+    assert.throws(() => parsePrefixes(['1.2.3.0/24', '34.0.0.0/12']), /34\.0\.0\.0\/12 is broader than \/16/);
+    // The broadest real ones, measured: OpenAI's /16, Google's /64.
+    assert.deepEqual(parseList({ prefixes: [{ ipv4Prefix: '23.98.0.0/16' }, { ipv6Prefix: '2001:4860:4801:10::/64' }] }),
+        ['23.98.0.0/16', '2001:4860:4801:10::/64']);
 });
 
 test('normIp: IPv4-mapped IPv6 is checked as the IPv4 it is', () => {

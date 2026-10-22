@@ -95,7 +95,8 @@ export function createVerifier({
         const lists = body && typeof body.lists === 'object' && body.lists ? body.lists : {};
         for (const { agent } of due) {
             const l = Object.hasOwn(lists, agent) ? lists[agent] : null;
-            const prefixes = parsePrefixes(l?.prefixes);
+            let prefixes;
+            try { prefixes = parsePrefixes(l?.prefixes); } catch (err) { fail(out, agent, err, 'feed'); continue; }
             // A future fetchedAt is clamped to now: it would otherwise keep the copy fresh forever.
             const at = Math.min(fetchedAtMs(l), t);
             const stored = fetchedAtMs(doc.lists[agent]);

@@ -22,8 +22,8 @@ cap is spent, stop and say so.
   only, Node ≥ 22.22 for the site alone, 42 tests (`npm test` in `site`). Both deployed 2026-10-22 from `phase3-site`
   to the owner's new Vultr VM (Frankfurt, 80.240.29.219) with `cloud/deploy/ship.sh root@<vm>` (build here, ship
   `dist/`; `install.sh` provisions); `https://siteread.dev` is live. DNS is at Namecheap, the owner's to edit. npm
-  `siteread` 0.2.0 and a PyPI `siteread` 0.0.1 placeholder are the owner's publishes; this release is 0.2.1 (the
-  owner's call, 2026-10-22: the earlier 0.2.1 never reached npm), also the owner's to publish. The name `siteread` is final
+  `siteread` 0.2.1 (this release, published by the owner 2026-10-22; the earlier 0.2.1 never reached npm) and a PyPI
+  `siteread` 0.0.1 placeholder are the owner's publishes; the next npm release is 0.2.2, also the owner's to publish. The name `siteread` is final
   (owner's pick, domain `siteread.dev` bought 2026-10-21); further names stay the owner's call. Repo stays private until the owner says.
 - The weekly cap in `CHARTER.md` starts after the initial release (the whole solution live end to end, cloud
   included); until then build. Once it applies, it is
