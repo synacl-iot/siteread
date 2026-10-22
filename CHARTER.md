@@ -49,6 +49,7 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 | 2026-W43 | agent sessions for phase 2 and release prep + owner's publishes (pre-release, cap not in force) | **phase 2 done** (PR #1): `siteread digest` + `seo-read` skill, 60 tests; npm `siteread` 0.2.0 → 0.2.1, PyPI `siteread` 0.0.1 placeholder |
 | 2026-W43 | one agent session for phase 3's cloud part (pre-release, cap not in force) | **`cloud/` built, not deployed** (PR #2): feed, `share` endpoint, aggregate job; `siteread share` in the CLI (0.3.0, unpublished); 87 tests; feed and share round-trip against a local server. `site/` next |
 | 2026-W43 | one agent session (pre-release, cap not in force) | hosting brief `cloud/HOSTING.md` (Vultr: existing VM or a new one); operator status, live named row, quartiles from 10 anonymous sites (PR #2); 95 tests; siteread.dev page mockup for the owner's sign-off. `site/` (Angular 22, SSR) after sign-off |
+| 2026-W43 | one agent session (pre-release, cap not in force) | site look decided (A · Ledger, from six directions); **`site/` built, not deployed** (PR #3): Angular 22 SSR, home, benchmark (early, populated, unavailable), docs rendered from the READMEs, privacy, operator; 42 tests; shipped-bundle and end-to-end checks against a local `cloud`; SSR memory measured into HOSTING.md |
 
 ## Owner decisions pending
 

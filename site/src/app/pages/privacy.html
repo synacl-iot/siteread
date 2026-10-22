@@ -1,0 +1,63 @@
+<main class="wrap page privacy">
+
+  <section class="stack privacy-head">
+    <h1 class="display h1 small">What siteread sends, and what it never does</h1>
+    <p class="lede">Your log holds your visitors' IP addresses and every URL on your site. None of that leaves your machine. The one thing that can leave is a week of totals, and only when you say yes.</p>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <span class="tag">check, digest</span>
+      <h2 class="card-title">On your machine</h2>
+      <p>Nothing is sent except plain GETs of the vendors' public IP lists, with the user-agent <code>siteread/{{ version }}</code>. There is no reverse-DNS check either: a PTR lookup would send your visitor's IP to your resolver.</p>
+    </div>
+    <div class="card">
+      <span class="tag">share</span>
+      <h2 class="card-title">Only on a yes</h2>
+      <p>It prints every byte it would send, then asks. <code>--dry-run</code> prints and stops. What it sends is exactly what it printed.</p>
+    </div>
+    <div class="card">
+      <span class="tag">the feed</span>
+      <h2 class="card-title">Public data, opt-in</h2>
+      <p>One file with every vendor's IP list, for anyone who would rather make one request than nine. Off unless you pass <code>feedUrl</code>; nothing is kept about who fetched it.</p>
+    </div>
+  </section>
+
+  <section class="grid wide privacy-detail">
+    <div class="stack">
+      <h2 class="display h2 small">A whole share, byte for byte</h2>
+      <p class="muted">From the test site. Thirteen numbers for the last 7 days, a week label, the version, and a random id.</p>
+      <pre class="code payload">{{ payload }}</pre>
+    </div>
+    <div class="stack loose">
+      <div class="stack tight-stack">
+        <h3>Never sent</h3>
+        <ul class="plain">
+          <li>hostnames, URLs or paths</li>
+          <li>visitor IP addresses</li>
+          <li>user-agents and referrers</li>
+          <li>search query text</li>
+          <li>your goal names</li>
+        </ul>
+        <p class="small muted">The payload is built from a fixed list of numbers, and the service refuses any field it does not know rather than dropping it.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>What the service keeps</h3>
+        <p class="small">The share as sent, plus the day it arrived (not the time). Not your IP address: the code never reads it, and siteread.dev keeps no access log.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>What gets published</h3>
+        <p class="small">Per number, the 25th, 50th and 75th percentile once 10 anonymous sites report it, and how many sites shared each week. Never a single site's row, never an id. synacl.com is named because its owner chose that.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>Your id</h3>
+        <p class="small">128 random bits in <code>.siteread/share-id</code>, made the first time you share. It lets the benchmark count sites instead of shares, and a second share of the same week replaces the first. Delete the file to start over as a new site.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>This site</h3>
+        <p class="small">No cookies, no analytics, no third-party requests: the fonts are served from siteread.dev itself.</p>
+      </div>
+    </div>
+  </section>
+
+</main>

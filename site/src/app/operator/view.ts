@@ -1,0 +1,92 @@
+import { OperatorStatus } from '../api';
+import { fmt, utcMinute } from '../benchmark/view';
+
+// /v1/operator/status → what the operator page prints. Counts only, like the status itself.
+
+const DAY_HOURS = 24;
+
+// The refusal codes (SHARE_REFUSALS in packages/verify/src/share.js, plus the endpoint's own
+// `operator-denied` and `internal`) folded into the columns an operator acts on. A code this list
+// does not know lands in "Other", so a new one is counted, never lost.
+export const REFUSAL_COLUMNS: readonly { title: string; codes: readonly string[] }[] = [
+  { title: 'Unknown field', codes: ['unknown-field', 'unknown-metric'] },
+  { title: 'Bad value', codes: ['body', 'schema', 'id', 'version', 'metric-value', 'not-json'] },
+  { title: 'Week', codes: ['week', 'future-week', 'old-week'] },
+  { title: 'Too large / type', codes: ['too-large', 'content-type'] },
+  { title: 'New-site cap', codes: ['new-site-cap'] },
+  { title: 'Token denied', codes: ['operator-denied'] },
+  { title: 'Server error', codes: ['internal'] },
+];
+const KNOWN = new Set(REFUSAL_COLUMNS.flatMap(c => c.codes));
+
+export interface OperatorView {
+  feedCard: { value: string; note: string; warn: boolean };
+  benchCard: { value: string; note: string };
+  newCard: { value: string; max: string };
+  refusedCard: { value: string; note: string };
+  lastRun: string;
+  lists: { agent: string; prefixes: string; fetched: string; fresh: boolean; error: string }[];
+  newSites: { day: string; sites: number; pct: number }[];
+  newSitesLabel: string;
+  weeks: { week: string; sites: number; pct: number }[];
+  weeksLabel: string;
+  columns: string[];
+  days: { day: string; taken: number; cells: number[] }[];
+  named: string;
+}
+
+const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
+
+/** Refusals of one day, one number per column (REFUSAL_COLUMNS, then Other). */
+export function refusalCells(refused: Record<string, number>): number[] {
+  const cells = REFUSAL_COLUMNS.map(c => c.codes.reduce((n, code) => n + (refused[code] ?? 0), 0));
+  cells.push(Object.entries(refused).filter(([k]) => !KNOWN.has(k)).reduce((n, [, v]) => n + v, 0));
+  return cells;
+}
+
+export function operatorView(s: OperatorStatus): OperatorView {
+  const lists = s.feed?.lists ?? [];
+  const stale = lists.filter(l => !(l.ageHours < DAY_HOURS));
+  const run = s.lastFeedRun;
+  const errors = run?.errors ?? {};
+  const today = s.requests.at(-1);
+  const refusedToday = today ? sum(today.refused) : 0;
+  const todayCodes = today ? Object.entries(today.refused).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`) : [];
+  const newTop = Math.max(1, ...s.newSites.map(d => d.sites));
+  const weeks = (s.benchmark?.history ?? []).slice(-8);
+  const weekTop = Math.max(1, ...weeks.map(w => w.sites));
+  const b = s.benchmark;
+  return {
+    feedCard: lists.length
+      ? {
+          value: `${lists.length - stale.length} of ${lists.length} fresh`,
+          note: stale.length ? `${stale.map(l => l.agent).join(', ')} kept from an older fetch` : 'every list fetched in the last 24 h',
+          warn: stale.length > 0,
+        }
+      : { value: 'no feed yet', note: 'the feed job has not run', warn: true },
+    benchCard: b
+      ? { value: `${b.sites} ${b.sites === 1 ? 'site' : 'sites'}`, note: `built ${utcMinute(b.generatedAt)}${b.window ? ` · ${b.window.from} to ${b.window.to}` : ''}` }
+      : { value: 'not built', note: 'the aggregate job has not run' },
+    newCard: { value: String(s.newSitesToday.sites), max: `of ${s.newSitesToday.max} allowed` },
+    refusedCard: { value: String(refusedToday), note: todayCodes.length ? todayCodes.join(', ') : 'none today' },
+    lastRun: !run
+      ? 'the feed job has not run'
+      : run.error
+        ? `last run ${utcMinute(run.at)} failed: ${run.error}`
+        : `last run ${utcMinute(run.at)} · fetched ${run.fetched?.length ?? 0}, failed ${run.failed?.length ?? 0}`,
+    lists: lists.map(l => ({
+      agent: l.agent,
+      prefixes: fmt(l.prefixes),
+      fetched: utcMinute(l.fetchedAt),
+      fresh: l.ageHours < DAY_HOURS,
+      error: errors[l.agent] ?? '',
+    })),
+    newSites: s.newSites.map(d => ({ day: d.day, sites: d.sites, pct: Math.round((d.sites / newTop) * 100) })),
+    newSitesLabel: `New sites per day, ${s.newSites[0]?.day ?? ''} to ${s.newSites.at(-1)?.day ?? ''}: ${s.newSites.map(d => d.sites).join(', ')}`,
+    weeks: weeks.map(w => ({ week: w.week, sites: w.sites, pct: Math.round((w.sites / weekTop) * 100) })),
+    weeksLabel: weeks.length ? `Sites per week: ${weeks.map(w => `${w.sites} in ${w.week}`).join(', ')}` : 'No week has a share yet',
+    columns: [...REFUSAL_COLUMNS.map(c => c.title), 'Other'],
+    days: s.requests.slice(-7).reverse().map(d => ({ day: d.day, taken: d.taken, cells: refusalCells(d.refused) })),
+    named: b?.named.length ? b.named.map(n => `${n.label}: ${n.week ?? 'no share in the window'}`).join(' · ') : 'no named site',
+  };
+}

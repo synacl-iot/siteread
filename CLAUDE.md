@@ -11,14 +11,15 @@ cap is spent, stop and say so.
 | `packages/verify/` | npm `siteread`: crawler verification (vendor IP lists + UA table + scanner signatures), CLI |
 | `skill/` | Claude Code skill `seo-read`: GSC export + log + beacons → weekly memo (phase 2) |
 | `cloud/` | list feed + `share` endpoint + aggregate job (phase 3) |
-| `site/` | static public page: benchmark with `n`, docs (phase 3) |
+| `site/` | siteread.dev in Angular 22 with SSR: home, benchmark with `n`, docs from the READMEs, privacy, private operator page (phase 3) |
 
 ## Starting a session here
 
 - State: phases 1 (`packages/verify`) and 2 (`siteread digest` + `skill/seo-read`) done 2026-10-21. Phase 3's
   `cloud/` (feed, `share` endpoint, aggregate job, operator status) and `siteread share` (0.3.0) built in PR #2, not
-  deployed; 95 tests (`npm test` in `packages/verify` and in `cloud`). `site/` is next: Angular 22 with SSR (owner's
-  pick), its deps in `site/` only, Node ≥ 22.22 for the site alone; built on the owner's machine, `dist/` shipped.
+  deployed; 95 tests (`npm test` in `packages/verify` and in `cloud`). `site/` built 2026-10-22 in the Ledger look
+  (owner's pick) on `phase3-site`, PR #3, stacked on PR #2, not deployed: Angular 22 with SSR, its deps in `site/`
+  only, Node ≥ 22.22 for the site alone, 42 tests (`npm test` in `site`); built on the owner's machine, `dist/` shipped.
   Hosting: Vultr, brief in `cloud/HOSTING.md`. npm `siteread` 0.2.1 and a
   PyPI `siteread` 0.0.1 placeholder are the owner's publishes. Hosting and the `siteread.dev` DNS are the owner's pick;
   nothing deploys before it. The name `siteread` is final

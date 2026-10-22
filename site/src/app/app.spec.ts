@@ -1,0 +1,45 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { Component } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { App } from './app';
+import { DOCS } from './generated/docs';
+
+@Component({ template: '' })
+class Blank {}
+
+describe('App', () => {
+  async function at(url: string) {
+    TestBed.configureTestingModule({
+      imports: [App],
+      providers: [provideRouter([{ path: '**', component: Blank }]), provideHttpClient(), provideHttpClientTesting()],
+    });
+    const fixture = TestBed.createComponent(App);
+    await TestBed.inject(Router).navigateByUrl(url);
+    await fixture.whenStable();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('has the public header and footer on public pages', async () => {
+    const el = await at('/benchmark');
+    expect([...el.querySelectorAll('.site-nav a')].map(a => a.textContent)).toEqual(['Benchmark', 'Docs', 'Privacy', 'npm']);
+    expect(el.querySelector('.site-footer')!.textContent).toContain('MIT licensed');
+  });
+
+  it('leaves them off the private operator page', async () => {
+    const el = await at('/operator');
+    expect(el.querySelector('.site-header')).toBeNull();
+    expect(el.querySelector('.site-footer')).toBeNull();
+  });
+});
+
+describe('the generated docs', () => {
+  it('holds every section, with no link into the private repo', () => {
+    expect(DOCS.map(d => d.id)).toEqual(['install', 'cli', 'digest', 'seo-read', 'share', 'library', 'vendor-lists', 'feed', 'why']);
+    for (const d of DOCS) {
+      expect(d.html.length).toBeGreaterThan(100);
+      for (const [, href] of d.html.matchAll(/href="([^"]*)"/g)) expect(href).toMatch(/^(https:\/\/|docs#)/);
+    }
+  });
+});

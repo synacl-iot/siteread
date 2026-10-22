@@ -1,0 +1,27 @@
+<main class="wrap page tight docs">
+
+  <section class="stack">
+    <h1 class="display h1 small">Docs</h1>
+    <p class="lede">siteread {{ version }}: a CLI and a library for Node 20 or later, with zero dependencies, plus a skill for Claude Code. Everything here runs on your machine.</p>
+  </section>
+
+  <div class="docs-layout">
+    <nav class="docs-toc" aria-label="On this page">
+      <p class="eyebrow">On this page</p>
+      <ol>
+        @for (s of sections; track s.id) {
+          <li><a [href]="'docs#' + s.id">{{ s.title }}</a></li>
+        }
+      </ol>
+    </nav>
+    <div class="docs-body">
+      @for (s of sections; track s.id) {
+        <section class="doc" [attr.aria-labelledby]="s.id">
+          <h2 class="display h2" [id]="s.id">{{ s.title }}</h2>
+          <div class="prose" [innerHTML]="s.html"></div>
+        </section>
+      }
+    </div>
+  </div>
+
+</main>
