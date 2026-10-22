@@ -335,11 +335,16 @@ table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
 :root {
   --metal: linear-gradient(100deg, #2B3137 0%, #4E575F 22%, #7D868E 34%, #3A4148 46%, #5C646C 60%, #7D868E 72%, #2B3137 100%);
   --glint: rgba(255, 255, 255, 0.95);
+  --metal-glow: none;
 }
+/* Dark mode needs deep valleys between its highlights, or every band reads as the same light
+   silver and the shine and glints vanish into it: the darkest stop is still 3.4:1 on a card. A
+   narrow white band is the shine that sweeps, and a faint glow lifts the letters off the page. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --metal: linear-gradient(100deg, #9AA4AD 0%, #E3E8EC 20%, #FFFFFF 30%, #B7C0C8 44%, #F2F5F7 62%, #A3ADB6 78%, #E9EDF0 100%);
+    --metal: linear-gradient(100deg, #8A949D 0%, #D3D9DE 13%, #66707A 27%, #EEF2F5 39%, #FFFFFF 43%, #EEF2F5 47%, #707A84 59%, #C9D0D6 73%, #66707A 87%, #B4BDC5 100%);
     --glint: #FFFFFF;
+    --metal-glow: drop-shadow(0 0 0.28em rgba(196, 212, 228, 0.22));
   }
 }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
@@ -355,7 +360,8 @@ table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
-    animation: platinum 9s ease-in-out infinite;
+    filter: var(--metal-glow);
+    animation: platinum 7s ease-in-out infinite;
   }
   h1::selection, h2::selection { -webkit-text-fill-color: var(--ink); color: var(--ink); background: var(--accent-soft); }
 }
@@ -368,5 +374,5 @@ table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
   h1, h2 { animation: none; background-position: 0 0, 0 0, 0 0, 0 0, 40% 0; }
 }
 @media (forced-colors: active) {
-  h1, h2 { background: none; -webkit-text-fill-color: CanvasText; color: CanvasText; animation: none; }
+  h1, h2 { background: none; -webkit-text-fill-color: CanvasText; color: CanvasText; animation: none; filter: none; }
 }
