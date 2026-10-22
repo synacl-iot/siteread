@@ -77,9 +77,9 @@ describe('operatorView', () => {
 });
 
 describe('API usage', () => {
-  it('splits the feed by siteread and the benchmark by page renders', () => {
+  it('splits the feed by siteread and the benchmark by page views', () => {
     expect(usageCells({ feed: { siteread: 5, other: 1 }, benchmark: { local: 40, browser: 3, siteread: 1 }, health: { other: 2 }, other: { other: 9 } }))
-      .toEqual([5, 1, 40, 4, 2, 9]);
+      .toEqual([5, 1, 43, 1, 2, 9]);
     expect(usageCells(undefined)).toEqual([0, 0, 0, 0, 0, 0]);
     expect(usageCells({}).length).toBe(USAGE_COLUMNS.length);
   });
@@ -87,7 +87,7 @@ describe('API usage', () => {
   it('counts today’s feed and the versions calling in over 7 days', () => {
     const v = operatorView(status());
     expect(v.feedTodayCard).toEqual({ value: '6 fetches', note: '5 by siteread; each install fetches at most once a day' });
-    expect(v.usage[0]).toEqual({ day: '2026-10-22', cells: [5, 1, 40, 4, 2, 9] });
+    expect(v.usage[0]).toEqual({ day: '2026-10-22', cells: [5, 1, 43, 1, 2, 9] });
     expect(v.usage[1]).toEqual({ day: '2026-10-21', cells: [4, 0, 0, 0, 0, 0] });
     expect(v.versions).toBe('0.3.0 ×29 · 0.2.1 ×1');
   });
