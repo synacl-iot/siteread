@@ -1,0 +1,15 @@
+{
+  "name": "siteread-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The merged crawler-list feed, the share endpoint and the aggregate job behind siteread.dev. Zero dependencies.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bin/serve.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT"
+}

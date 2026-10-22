@@ -4,3 +4,4 @@ node_modules/
 coverage/
 .env
 !packages/verify/test/fixtures/**/*.log
+cloud/.data/

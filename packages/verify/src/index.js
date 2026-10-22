@@ -14,3 +14,4 @@ export { digest, parseSitemap, parseGoal } from './digest/index.js';
 export { parseCsv } from './digest/csv.js';
 export { classifySource } from './digest/referrer.js';
 export { parseLine } from './digest/log.js';
+export { sharePayload, validateShare, isoWeek, weekStart, addWeeks, SHARE_METRICS, SHARE_SCHEMA, SHARE_URL, SHARE_REFUSALS } from './share.js';

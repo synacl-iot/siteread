@@ -15,9 +15,13 @@ cap is spent, stop and say so.
 
 ## Starting a session here
 
-- State: phases 1 (`packages/verify`) and 2 (`siteread digest` + `skill/seo-read`) done 2026-10-21, 60 tests.
-  npm `siteread` 0.2.1 and a PyPI `siteread` 0.0.1 placeholder are the owner's publishes. Phase 3 (`cloud/` +
-  `site/`) is next; its hosting and the `siteread.dev` DNS are the owner's pick. The name `siteread` is final
+- State: phases 1 (`packages/verify`) and 2 (`siteread digest` + `skill/seo-read`) done 2026-10-21. Phase 3's
+  `cloud/` (feed, `share` endpoint, aggregate job, operator status) and `siteread share` (0.3.0) built in PR #2, not
+  deployed; 95 tests (`npm test` in `packages/verify` and in `cloud`). `site/` is next: Angular 22 with SSR (owner's
+  pick), its deps in `site/` only, Node ≥ 22.22 for the site alone; built on the owner's machine, `dist/` shipped.
+  Hosting: Vultr, brief in `cloud/HOSTING.md`. npm `siteread` 0.2.1 and a
+  PyPI `siteread` 0.0.1 placeholder are the owner's publishes. Hosting and the `siteread.dev` DNS are the owner's pick;
+  nothing deploys before it. The name `siteread` is final
   (owner's pick, domain `siteread.dev` bought 2026-10-21); further names stay the owner's call. Repo stays private until the owner says.
 - The weekly cap in `CHARTER.md` starts after the initial release (the whole solution live end to end, cloud
   included); until then build. Once it applies, it is
