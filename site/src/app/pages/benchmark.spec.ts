@@ -1,14 +1,25 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { PUBLIC_API } from '../api';
 import { sample } from '../benchmark/view.spec';
 import { BenchmarkLoad, BenchmarkPage } from './benchmark';
 
 async function render(load: BenchmarkLoad) {
-  TestBed.configureTestingModule({ imports: [BenchmarkPage], providers: [provideRouter([])] });
+  const fixture = await mount(load);
+  return fixture.nativeElement as HTMLElement;
+}
+
+async function mount(load: BenchmarkLoad) {
+  TestBed.configureTestingModule({
+    imports: [BenchmarkPage],
+    providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+  });
   const fixture = TestBed.createComponent(BenchmarkPage);
   fixture.componentRef.setInput('benchmark', load);
   await fixture.whenStable();
-  return fixture.nativeElement as HTMLElement;
+  return fixture;
 }
 
 const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ').trim();
@@ -70,5 +81,26 @@ describe('BenchmarkPage', () => {
     expect(text(people)).toContain('siteread.dev: no share yet');
     expect([...el.querySelectorAll('.notice')].map(text)).toContain('siteread.dev has not shared in this window yet.');
     expect(el.querySelectorAll('.legend .key-marker.m1').length).toBe(1);
+  });
+
+  it('fetches the live numbers over a build-time snapshot, and keeps the snapshot if that fails', async () => {
+    const fixture = await mount({ ok: true, data: sample(), snapshot: true });
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${PUBLIC_API}/v1/benchmark.json`).flush(sample({ sites: 15, generatedAt: '2026-10-23T10:00:00.000Z' }));
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(text(el.querySelector('.bench-meta')!)).toContain('15 anonymous sites');
+    expect(text(el.querySelector('.bench-meta')!)).toContain('built 2026-10-23 10:00 UTC');
+
+    TestBed.resetTestingModule();
+    const stale = await mount({ ok: true, data: sample(), snapshot: true });
+    TestBed.inject(HttpTestingController).expectOne(`${PUBLIC_API}/v1/benchmark.json`).error(new ProgressEvent('error'));
+    await stale.whenStable();
+    expect(text((stale.nativeElement as HTMLElement).querySelector('.bench-meta')!)).toContain('14 anonymous sites');
+  });
+
+  it('does not fetch again when the browser fetched the numbers itself', async () => {
+    await mount({ ok: true, data: sample() });
+    TestBed.inject(HttpTestingController).expectNone(`${PUBLIC_API}/v1/benchmark.json`);
   });
 });

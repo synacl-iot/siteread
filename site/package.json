@@ -2,7 +2,7 @@
   "name": "siteread-site",
   "version": "0.0.0",
   "private": true,
-  "description": "siteread.dev: the public page, benchmark, docs and the private operator page (Angular, client-only)",
+  "description": "siteread.dev: the public page, benchmark, docs and the private operator page (Angular, prerendered static files)",
   "license": "MIT",
   "engines": {
     "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
@@ -28,6 +28,8 @@
     "@angular/build": "22.2.3",
     "@angular/cli": "22.2.3",
     "@angular/compiler-cli": "22.2.3",
+    "@angular/platform-server": "22.2.3",
+    "@angular/ssr": "22.2.3",
     "@types/node": "22.20.5",
     "jsdom": "30.1.3",
     "marked": "18.1.1",
