@@ -67,7 +67,8 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 - `share` defaults, set in PR #2 and the owner's to change: at most 100 new sites a day, each site's latest share within
   4 weeks compared, a random per-site id kept in `.siteread/share-id`. Decided 2026-10-22 by the owner: the benchmark
   publishes the 25th/50th/75th percentiles only, from 10 anonymous sites per metric (five percentiles from 5 sites gave
-  every value back); synacl.com is the named row, live from its own share.
+  every value back). Named rows, the owner's pick 2026-10-22: synacl.com (from Synacl's own weekly share, which the
+  Synacl side runs) and siteread.dev (shared daily by its own VM from its own log, latest 7 days).
 - ~~Does siteread read its own site?~~ decided 2026-10-22 by the owner: yes. `siteread.dev` keeps an access log (Caddy
   JSON, root-only on the VM, every line deleted after 28 days; `cloud/deploy/pull-log.sh` mirrors it for the weekly
   read). `api.siteread.dev` and `www` keep none, so a share or a feed fetch is never tied to an address. The privacy
