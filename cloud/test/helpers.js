@@ -1,8 +1,10 @@
 // Shared by the cloud tests: the package's vendor-list fixtures behind a fake fetch, and a few
 // made-up shares.
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { SOURCES, parseList } from '../../packages/verify/src/ip-ranges.js';
+import { leadingZeroBits, PROOF_PREFIX } from '../../packages/verify/src/share.js';
 
 const FIXTURES = new URL('../../packages/verify/test/fixtures/', import.meta.url);
 const FIXTURE_FOR = {
@@ -57,3 +59,11 @@ export function post(app, body, { type = 'application/json', path = '/v1/share' 
 }
 
 export const silent = { warn() {}, error() {} };
+
+/** A proof of work for test id `n` with at least `bits` zero bits, or exactly `bits` with `exact`. */
+export function proofFor(n, bits, { exact = false } = {}) {
+    for (let k = 0; ; k++) {
+        const got = leadingZeroBits(createHash('sha256').update(`${PROOF_PREFIX}${id(n)}:${k}`).digest());
+        if (exact ? got === bits : got >= bits) return String(k);
+    }
+}

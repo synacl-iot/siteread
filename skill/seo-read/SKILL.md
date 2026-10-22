@@ -8,7 +8,9 @@ description: Weekly read of a website's search and reader traffic. Turns a Googl
 You turn two files the user already has into one dated memo. The numbers come from
 `siteread digest`, which is deterministic; you write the prose around them. You never compute a
 number the digest can give you, and you never send the user's data anywhere: the digest runs
-locally, and its only network traffic is GETs of the crawler vendors' public IP lists.
+locally, and its only network traffic is GETs of public crawler lists (the siteread feed, or the
+vendors' own with `--no-feed`). The one
+exception is the last step's share, a week of totals, and only on the user's yes.
 
 ## 1. Find the inputs
 
@@ -18,8 +20,9 @@ one message.
 | Input | What it is | If missing |
 |---|---|---|
 | Search Console export | the zip (or the folder it unzips to) from Search Console → Performance → set the range to **Last 28 days** → Export → **Download CSV** | ask; the read can run on the log alone, so say what will be missing |
-| Access log | nginx or Apache "combined" format; `.gz` rotations are fine; pass every file that covers the period | ask; the read can run on GSC alone |
+| Access log | nginx or Apache "combined", Caddy's JSON access log, or an nginx JSON `log_format` (one object per line); `.gz` rotations are fine; pass every file that covers the period | ask; the read can run on GSC alone |
 | Site host | e.g. `example.org` | the digest guesses it and warns; confirm the guess |
+| Hosts in the log | a JSON log that holds several sites (an API, an app, other domains on the same server) | if the log's lines carry a host, ask which are this site's and pass each as `--host` (`www.` is a different host); otherwise their traffic counts as this site's |
 | Sitemap | a local copy of `sitemap.xml` | optional; without it crawler counts include every page fetch |
 | Goals | what a reader *doing something* looks like in the log, e.g. a signup `POST /signup` 201 | optional; ask once |
 | Team paths / IPs | the owner's own admin paths or IPs, so the team isn't counted as readers | optional; ask once |
@@ -31,16 +34,17 @@ are settled, write the answers there so next week needs no questions. Each key i
 { "logs": ["logs/access.log.1.gz", "logs/access.log"],
   "site": "example.org", "sitemap": "public/sitemap.xml",
   "goals": ["signup=^POST /signup 2", "tool=^POST /api/"],
+  "hosts": ["example.org", "www.example.org"],
   "teamPath": "^/admin/", "excludeIps": [], "allowPath": null }
 ```
 
-`logs` → `--log` each, `goals` → `--goal` each, `teamPath` → `--team-path`, `excludeIps` →
+`logs` → `--log` each, `hosts` → `--host` each, `goals` → `--goal` each, `teamPath` → `--team-path`, `excludeIps` →
 `--exclude-ip` each, `allowPath` → `--allow-path`. The export is new every week, so it is not
 saved: take the newest export zip or folder in the directory, and confirm it if there are several.
 A goal regex is matched against `METHOD /path status`, so "a POST to /signup that returns 2xx" is
 `^POST /signup 2`.
 
-If a log line format is not combined (the digest warns when most lines don't parse), say so and
+If the log is in none of those formats (the digest warns when most lines don't parse), say so and
 ask the user how their server logs; don't guess a format.
 
 ## 2. Run the digest
@@ -48,7 +52,7 @@ ask the user how their server logs; don't guess a format.
 ```sh
 npx -y siteread@0.2 digest \
   --gsc <export.zip> --log <access.log.1.gz> --log <access.log> \
-  --site <host> --sitemap <sitemap.xml> \
+  --site <host> [--host <host> …] --sitemap <sitemap.xml> \
   --goal '<label=regex>' --team-path '<regex>' \
   --out .siteread/digests
 ```
@@ -63,7 +67,7 @@ npx -y siteread@0.2 digest \
   nothing.
 - Warnings go to stderr. Read every one; each belongs in the memo's method notes or changes how
   you read a number.
-- If `siteread` is installed (`siteread --version` prints 0.2 or later), `siteread digest …` is the
+- If `siteread` is installed (`siteread --version` prints 0.2.1 or later), `siteread digest …` is the
   same command without npx.
 - Run `npx -y siteread@0.2 --help` for every option. Exit 1 is a usage or input problem: fix it, don't
   work around it by reading the CSVs yourself.
@@ -105,7 +109,8 @@ The JSON has `gsc` and `log` halves (either may be null) and `warnings`. What ea
   the people rule excluded real readers (no asset loads: an aggressive cache or CDN serving the
   assets). Say which is more likely given `setAside` and the direct count; if neither fits, say
   the gap is unexplained rather than inventing a cause. Never fix it by adding.
-- `log.lines.unparsed`: mention only when the digest warned about it.
+- `log.lines.unparsed`: mention only when the digest warned about it. `log.lines.otherHost` is
+  the lines `--host` set aside as another site's; `noHost` the lines it could not check.
 
 ## 4. Write the memo
 
@@ -172,3 +177,20 @@ Append the memo to `siteread-log.md` in the directory you ran in (create it with
 `# Read log: <site>` heading if new; reads go oldest first, newest at the bottom). Keep the
 digest JSON in `.siteread/digests/`: next week's `--out` compares with it. Then show the user the memo
 and ask which of the recommended next steps they want to take.
+
+## 6. Offer the benchmark (opt-in)
+
+The public benchmark at siteread.dev compares sites by these same weekly numbers. Offer it once
+per read, after the memo; never send without a yes.
+
+1. Run `npx -y siteread@0.2 share --dry-run`. It prints the exact payload it would send (a week
+   label, the version, a random id and the week's totals: no host, URL, path, IP or query) and
+   sends nothing.
+2. Show the user that payload and the CLI's notes (a part with less than a full week is left
+   out), and ask whether to send it. If `.siteread/config.json` says `"share": false`, skip this
+   step; if the user says never, write that there.
+3. On a yes, run `npx -y siteread@0.2 share --yes` and show its answer: for each number, the
+   band it falls in among the benchmark's published quartiles, or how many sites report it so
+   far. Add one line to the memo's method notes: "Shared <week> to the siteread benchmark."
+4. The id in `.siteread/share-id` keeps the site one row from week to week; never print it or
+   put it in the memo.

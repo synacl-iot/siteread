@@ -1,7 +1,7 @@
 // The merged crawler-list feed: every vendor list in one document, the one
 // createVerifier({ feedUrl }) reads:
 //
-//   { "siteread": "0.3.0", "generatedAt": "…",
+//   { "siteread": "0.2.1", "generatedAt": "…",
 //     "lists": { "<agent>": { "prefixes": ["cidr", …], "fetchedAt": "…", "source": "<vendor url>" } } }
 //
 // It is built by the package's own verifier against the vendors, so the feed obeys the same rules

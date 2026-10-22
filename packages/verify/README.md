@@ -15,8 +15,10 @@ npx siteread --help         # the CLI, no install
 
 ## CLI
 
-`check` answers one request. The first call fetches the vendor lists into a cache file; later calls
-reuse a copy younger than 24 h.
+`check` answers one request. The first call fetches the crawler lists into a cache file; later calls
+reuse a copy younger than 24 h. The lists come from the siteread feed (one GET instead of nine;
+below); `--no-feed` fetches each from its vendor instead, and any list the feed cannot give comes
+from its vendor anyway.
 
 ```console
 $ npx siteread check 216.73.216.12 "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
@@ -61,7 +63,7 @@ Options: `--no-cache` refetches every list now (a failed fetch still falls back 
 ## Digest (for the `seo-read` skill)
 
 `digest` reads a Search Console export (the Performance → Export → Download CSV zip) and your
-access logs (nginx/Apache combined, `.gz` fine) and prints one JSON document: weekly GSC totals with
+access logs (nginx/Apache combined, Caddy's JSON, or an nginx JSON `log_format`; `.gz` fine) and prints one JSON document: weekly GSC totals with
 impression-weighted position, people by first-touch source (an IP that sent a browser UA, loaded
 an asset and never probed a scanner path), goal counts, and every crawler checked against its
 vendor's list.
@@ -72,13 +74,20 @@ $ npx siteread digest --gsc export.zip --log access.log.1.gz --log access.log \
 .siteread/digests/2026-10-18.json
 ```
 
-`npx siteread --help` lists every option. The skill in [`skill/`](../../skill/README.md) turns
-the JSON into a weekly memo.
+A JSON log that holds several sites (one nginx serving an API, an app and a blog) is cut to one
+with `--host`, repeated for each name (`www.` is a different host). Combined lines carry no host,
+so `--host` keeps them and says so. For nginx JSON, the common field names are read
+(`remote_addr`, `request_uri` or `request`, `status`, `time`/`time_iso8601`/`time_local`/`msec`,
+`http_user_agent` or `user_agent`, `http_referer` or `referer`, `host` or `http_host`), with
+`escape=json` or nginx's default escaping.
+
+`npx siteread --help` lists every option. The `seo-read` skill for Claude Code, in this project's
+`skill/` folder, turns the JSON into a weekly memo.
 
 ## Share (opt-in)
 
-`share` sends one week of a digest's aggregate numbers to the public benchmark and prints where your
-site sits among the others. It prints the exact bytes first and sends nothing without a yes (a
+`share` sends one week of a digest's aggregate numbers to the public benchmark and prints where each
+number stands among the quartiles the benchmark publishes. It prints the exact bytes first and sends nothing without a yes (a
 prompt, or `--yes` in a script). `--dry-run` prints and stops.
 
 ```console
@@ -88,7 +97,7 @@ siteread: the whole payload from .siteread/digests/2026-10-18.json, byte for byt
   "schema": 1,
   "id": "3803e566762f2e56ba381b993ddf466e",
   "week": "2026-W42",
-  "siteread": "0.3.0",
+  "siteread": "0.2.1",
   "metrics": {
     "people": 4,
     "peopleFromSearch": 1,
@@ -103,22 +112,26 @@ siteread: the whole payload from .siteread/digests/2026-10-18.json, byte for byt
     "gscClicks": 3,
     "gscCtrPct": 1.3,
     "gscPosition": 17.9
-  }
+  },
+  "proof": "2746561"
 }
 siteread: not sent (--dry-run)
 ```
 
-With six sites in the window (five of them made up for this example), the answer reads:
+The answer places each number in a band among the published 25th, 50th and 75th percentiles, and
+only for numbers the benchmark page already shows a spread for; for the rest it gives the count of
+sites so far. It is read from the published benchmark (rebuilt hourly), not from other sites' rows,
+so it never tells you more than the page does. With 14 anonymous sites, 9 of them with Search
+Console numbers (made up for this example):
 
 ```console
-sent. 2026-W42 compared with 6 sites: each site's latest share, 2026-W39 to 2026-W42
+sent 2026-W42. Against the benchmark built 2026-10-21 09:00 UTC: 14 anonymous sites, 2026-W39 to 2026-W42
 
-metric                   yours  percentile  sites
-people                       4        50th      6
-peopleFromAi                 0        25th      6
-gscImpressions             238        42nd      6
-gscClicks                    3        33rd      6
-gscPosition               17.9        42nd      6  (lower is better)
+metric                   yours  where
+people                       4  below the 25th percentile
+peopleFromAi                 0  25th to 50th percentile
+gscImpressions             238  9 sites; shown from 10
+gscPosition               17.9  9 sites; shown from 10
 …
 ```
 
@@ -129,6 +142,12 @@ gscPosition               17.9        42nd      6  (lower is better)
 - **The id** is 128 random bits in `.siteread/share-id`, made on first use. It makes the benchmark
   count sites rather than shares, and a second share of the same week replaces the first. Delete the
   file to start over as a new site.
+- **The proof** is a proof of work tied to the id: a number that makes SHA-256 of the id start with
+  22 zero bits, a few seconds of CPU once, kept in `.siteread/share-proof`. Only a site's first
+  share needs it. Ids are free to make, so without it one sender could invent a flood of sites; the
+  service never reads an address, so it makes each new site cost time instead, and the price rises
+  by one bit for every 50 new sites in a day. On a busy day the service asks for more; the CLI makes
+  it and tells you to run `share` again.
 - A part with less than a full week (a 4-day log, an export whose last week is cut short) is left
   out and the CLI says so. `--endpoint` (or `SITEREAD_SHARE_URL`) sends elsewhere: `https://` only,
   plain `http://` only to localhost.
@@ -160,7 +179,8 @@ verifier.check('216.73.216.12', 'Mozilla/5.0 … ClaudeBot/1.0; +claudebot@anthr
 | `now` | `Date.now` | a clock, for tests |
 | `log` | `console` | `{ warn, error }`; pass `{}` for silence |
 | `isKnownScannerIp` | none | `(ip) => boolean`, the 444 rule (below) |
-| `feedUrl` | none | one merged document instead of the vendor URLs (below) |
+| `feedUrl` | none | one merged document instead of the vendor URLs (below); `FEED_URL` is the hosted one |
+| `fallback` | `false` | with `feedUrl`: fetch from the vendors what the feed could not give |
 
 It returns:
 
@@ -280,16 +300,21 @@ All of them answer `{ "creationTime": …, "prefixes": [{ "ipv4Prefix": … } | 
 
 ## Privacy
 
-Local use sends nothing anywhere except plain GETs of the URLs above, with the User-Agent
-`siteread/<version>`. No hostnames, URLs or visitor IPs leave your machine. There is no reverse-DNS
+Local use sends nothing anywhere except plain GETs of public crawler lists, with the User-Agent
+`siteread/<version>`: the siteread feed by default, or the vendors' URLs above with `--no-feed` (or
+`SITEREAD_FEED_URL=off`), and those vendors whenever the feed fails. The feed's service keeps no
+address; it counts fetches per day by siteread version. No hostnames, URLs or visitor IPs leave
+your machine. There is no reverse-DNS
 check for the same reason: a PTR lookup sends the visitor's IP to your resolver. `share` is the one
 exception: opt-in, its exact payload printed first, aggregate numbers only.
 
 `feedUrl` points the verifier at one merged document,
-`{ "lists": { "<agent>": { "prefixes": [...], "fetchedAt": "..." } } }`, instead of the vendors. It
-is for the hosted feed (this repo's `cloud/`), which is **not live yet**, so it is off by default and strictly opt-in.
-Every prefix from a feed is re-validated like a vendor's, and a `fetchedAt` in the future is clamped
-to now.
+`{ "lists": { "<agent>": { "prefixes": [...], "fetchedAt": "..." } } }`, instead of the vendors: the
+hosted feed is `https://api.siteread.dev/v1/lists.json` (`FEED_URL`, this repo's `cloud/`, rebuilt
+from the vendors every 6 h). The CLI uses it by default with `fallback: true`, which fetches from the
+vendors whatever the feed could not give; the library leaves both off unless you pass them. Every
+prefix from a feed is re-validated like a vendor's, and a `fetchedAt` in the future is clamped to
+now.
 
 ## License
 

@@ -53,7 +53,7 @@ function tmp(t) {
 function runAsync(args, { cwd, env = {}, offline = false } = {}) {
     return new Promise((resolve) => {
         const argv = offline ? ['--import', OFFLINE, BIN, ...args] : [BIN, ...args];
-        execFile(process.execPath, argv, { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (err, out, errOut) => {
+        execFile(process.execPath, argv, { cwd, env: { ...process.env, SITEREAD_PROOF_BITS: '8', ...env }, encoding: 'utf8' }, (err, out, errOut) => {
             resolve({ code: err ? err.code : 0, out, err: errOut });
         });
     });
@@ -183,6 +183,10 @@ test('validateShare: refuses anything not in the schema rather than trimming it'
     bad({ metrics: { people: Infinity } }, /number/, 'metric-value');
     bad({ metrics: {} }, /empty/, 'metric-value');
     bad({ metrics: [] }, /metrics must be an object/, 'metric-value');
+    bad({ proof: 123 }, /proof must be/, 'proof');
+    bad({ proof: '12a' }, /proof must be/, 'proof');
+    bad({ proof: '1'.repeat(21) }, /proof must be/, 'proof');
+    assert.deepEqual(validateShare({ ...ok, proof: '4096' }), { ok: true, share: { ...ok, proof: '4096' } });
     assert.equal(validateShare(null).code, 'body');
     assert.equal(validateShare([ok]).ok, false);
     // Metrics come back in schema order whatever order they arrived in.
@@ -231,7 +235,7 @@ test('cli share: no yes, no send; plain http only to localhost; a broken id file
     assert.match(none.stderr, /no such file: \.siteread\/digests/);
 });
 
-test('cli share --yes: sends the printed bytes, prints percentiles, reports a refusal', async (t) => {
+test('cli share --yes: sends the printed bytes, prints where it stands, reports a refusal', async (t) => {
     const dir = tmp(t);
     const file = join(dir, 'd.json');
     writeFileSync(file, JSON.stringify(await fixtureDigest()));
@@ -251,8 +255,13 @@ test('cli share --yes: sends the printed bytes, prints percentiles, reports a re
     const endpoint = `http://127.0.0.1:${server.address().port}/v1/share`;
 
     answer.body = {
-        ok: true, week: '2026-W42', window: { from: '2026-W39', to: '2026-W42' }, sites: 3,
-        percentiles: { people: { value: 4, percentile: 33, sites: 3 }, gscPosition: { value: 17.9, percentile: 83, sites: 3 } },
+        ok: true, week: '2026-W42',
+        against: { generatedAt: '2026-10-21T09:00:12.000Z', window: { from: '2026-W39', to: '2026-W42' }, sites: 14, minSites: 10 },
+        metrics: {
+            people: { value: 4, sites: 14, band: 'below-p25' },
+            gscPosition: { value: 17.9, sites: 14, band: 'p50-p75' },
+            gscClicks: { value: 3, sites: 9 },
+        },
         benchmark: 'https://siteread.dev/benchmark\u001b[31m',
     };
     const r = await runAsync(['share', file, '--yes', '--endpoint', endpoint], { cwd: dir });
@@ -263,9 +272,10 @@ test('cli share --yes: sends the printed bytes, prints percentiles, reports a re
     assert.match(got[0].ua, new RegExp(`^siteread/${VERSION.replace(/\./g, '\\.')} `));
     // What went over the wire is, byte for byte, what was printed first.
     assert.ok(r.out.startsWith(`${got[0].body}\n`));
-    assert.match(r.out, /sent\. 2026-W42 compared with 3 sites: each site's latest share, 2026-W39 to 2026-W42/);
-    assert.match(r.out, /\npeople\s+4\s+33rd\s+3\n/);
-    assert.match(r.out, /\ngscPosition\s+17\.9\s+83rd\s+3 {2}\(lower is better\)\n/);
+    assert.match(r.out, /sent 2026-W42\. Against the benchmark built 2026-10-21 09:00 UTC: 14 anonymous sites, 2026-W39 to 2026-W42/);
+    assert.match(r.out, /\npeople\s+4\s+below the 25th percentile\n/);
+    assert.match(r.out, /\ngscPosition\s+17\.9\s+50th to 75th percentile {2}\(lower is better\)\n/);
+    assert.match(r.out, /\ngscClicks\s+3\s+9 sites; shown from 10\n/);
     assert.match(r.out, /benchmark: https:\/\/siteread\.dev\/benchmark\[31m\n$/);   // no raw escape
 
     answer = { status: 400, body: { ok: false, error: 'week 2026-W42 is more than 8 weeks ago' } };
@@ -276,4 +286,24 @@ test('cli share --yes: sends the printed bytes, prints percentiles, reports a re
     const down = await runAsync(['share', file, '--yes', '--endpoint', 'http://127.0.0.1:9/v1/share'], { cwd: dir });
     assert.equal(down.code, 1);
     assert.match(down.err, /could not reach http:\/\/127\.0\.0\.1:9\/v1\/share/);
+
+    // The proof of work went with the payload, made once and kept beside the id.
+    const sentProof = JSON.parse(got[0].body).proof;
+    const [nonce, bits, forId] = readFileSync(join(dir, '.siteread', 'share-proof'), 'utf8').trim().split(' ');
+    assert.equal(nonce, sentProof);
+    assert.equal(forId, readFileSync(join(dir, '.siteread', 'share-id'), 'utf8').trim());
+    assert.ok(Number(bits) >= 8);
+
+    // A busy day: the service asks for more; the CLI makes it, keeps it, and sends nothing itself.
+    answer = { status: 400, body: { ok: false, error: 'a new site needs a proof of work of 11 bits today', need: 11 } };
+    const busy = await runAsync(['share', file, '--yes', '--endpoint', endpoint], { cwd: dir });
+    assert.equal(busy.code, 1);
+    assert.match(busy.err, /proof of work \(11 bits/);
+    assert.match(busy.err, /run share again to send it with the new proof/);
+    const stronger = readFileSync(join(dir, '.siteread', 'share-proof'), 'utf8').trim().split(' ');
+    assert.ok(Number(stronger[1]) >= 11);
+    const before = got.length;
+    answer = { status: 200, body: { ok: true, week: '2026-W42', against: null, metrics: {} } };
+    assert.equal((await runAsync(['share', file, '--yes', '--endpoint', endpoint], { cwd: dir })).code, 0);
+    assert.equal(JSON.parse(got[before].body).proof, stronger[0], 'the next share carries the stronger proof');
 });

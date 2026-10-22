@@ -1,0 +1,163 @@
+<main class="wrap page tight bench">
+
+  @if (view(); as v) {
+    <section class="stack">
+      <h1 class="display h1 small">How sites compare</h1>
+      <p class="mono muted bench-meta">{{ v.sites }} anonymous {{ v.sites === 1 ? 'site' : 'sites' }}@if (v.named.length) { + {{ v.namedLabels }}} · {{ v.windowText }} · {{ v.builtText }}</p>
+      @if (!v.early) {
+        <p class="bench-intro">Weekly numbers that sites chose to send with <code>siteread share</code>. A metric shows its spread once {{ v.minSites }} anonymous sites report it; until then it shows the count.@if (v.namedText) { {{ v.namedText }}} Every other site is anonymous.</p>
+        <div class="legend" aria-hidden="true">
+          <div><span class="key-box"></span>middle half of sites (25th to 75th percentile)</div>
+          <div><span class="key-median"></span>median</div>
+          @for (n of v.named; track n.label; let i = $index) {
+            <div><span class="key-marker" [class.m1]="i > 0"></span>{{ n.label }}</div>
+          }
+        </div>
+      }
+    </section>
+
+    @if (v.early) {
+      <section class="card big early">
+        <div class="early-count">
+          <p class="mono early-num">{{ v.sites }} <span>of {{ v.minSites }}</span></p>
+          <p class="muted">anonymous sites needed before any spread is shown</p>
+        </div>
+        <p>This benchmark starts small and says so. With fewer than {{ v.minSites }} anonymous sites, a published median or quartile could give away another site's exact number, so each row shows only how many sites report it.@if (v.named.length === 1) { {{ v.named[0].label }}, the one named site, shows its own numbers from week one.} @else if (v.named.length > 1) { The named sites show their own numbers from week one.}</p>
+      </section>
+    }
+
+    @for (n of v.named; track n.label) {
+      @if (!n.week) {
+        <p class="notice">{{ n.label }} has not shared in this window yet.</p>
+      }
+    }
+
+    @for (g of v.groups; track g.title; let gi = $index) {
+      <section class="metric-group" [attr.aria-labelledby]="'group-' + gi">
+        <div class="group-head">
+          <h2 class="display h2 small" [id]="'group-' + gi">{{ g.title }}</h2>
+          <span class="note">{{ g.note }}</span>
+        </div>
+        <div class="table-scroll">
+          <table class="metrics" [class.early]="v.early">
+            <thead class="visually-hidden">
+              <tr>
+                <th scope="col">Number, last 7 days</th>
+                @if (!v.early) {
+                  <th scope="col">Spread</th>
+                }
+                <th scope="col">25th, 50th and 75th percentile</th>
+                @for (n of v.named; track n.label) {
+                  <th scope="col">{{ n.label }}</th>
+                }
+                @if (!v.early) {
+                  <th scope="col">Sites</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of g.rows; track r.key) {
+                <tr>
+                  <th scope="row">
+                    <div class="label">{{ r.label }}</div>
+                    <div class="about">{{ r.about }}</div>
+                  </th>
+                  @if (!v.early) {
+                    <td class="strip-cell" aria-hidden="true">
+                      <div class="strip">
+                        <div class="axis"></div>
+                        @if (r.box) {
+                          <div class="box" [style.left.%]="r.box.left" [style.width.%]="r.box.width"></div>
+                          <div class="median" [style.left.%]="r.median"></div>
+                        }
+                        @for (c of r.named; track c.label; let i = $index) {
+                          @if (c.marker !== null) {
+                            <div class="marker" [class.m1]="i > 0" [style.left.%]="c.marker"></div>
+                          }
+                        }
+                      </div>
+                      <div class="scale" [attr.data-hi]="r.hiText"></div>
+                    </td>
+                  }
+                  <td class="num">
+                    @if (r.shown) {
+                      {{ r.quartiles }}
+                    } @else {
+                      <span class="muted">{{ r.waiting }}</span>
+                    }
+                  </td>
+                  @for (c of r.named; track c.label; let i = $index) {
+                    <td class="num named" [class.n1]="i > 0">
+                      @if (c.text) {
+                        {{ c.label }} {{ c.text }}
+                      } @else {
+                        <span class="muted">{{ c.label }}: no share yet</span>
+                      }
+                    </td>
+                  }
+                  @if (!v.early) {
+                    <td class="num sites">{{ r.sitesText }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
+    <section class="stack">
+      <div class="group-head">
+        <h2 class="display h2 small">Sites that shared, by week</h2>
+        @if (v.named.length) {
+          <span class="note">named sites included</span>
+        }
+      </div>
+      @if (v.history.length) {
+        <div class="weeks" [style.max-width.px]="v.history.length * 84">
+          <div class="bars" role="img" [attr.aria-label]="v.historyLabel">
+            @for (h of v.history; track h.week) {
+              <div class="bar-col">
+                <span class="mono">{{ h.sites }}</span>
+                <div class="bar" [style.height.%]="h.pct"></div>
+              </div>
+            }
+          </div>
+          <div class="bar-labels" aria-hidden="true">
+            @for (h of v.history; track h.week) {
+              <div>{{ h.label }}</div>
+            }
+          </div>
+        </div>
+      } @else {
+        <p class="muted">No week has a share yet.</p>
+      }
+    </section>
+
+    <ng-container *ngTemplateOutlet="add; context: { early: v.early, minSites: v.minSites }" />
+  } @else {
+    <section class="stack">
+      <h1 class="display h1 small">How sites compare</h1>
+      <p class="notice">The benchmark has not been built yet, or the service did not answer. Try again in a few minutes.</p>
+    </section>
+    <ng-container *ngTemplateOutlet="add; context: { early: false, minSites: 10 }" />
+  }
+
+  <ng-template #add let-early="early" let-minSites="minSites">
+    <section class="card big grid wide add">
+      <div class="stack add-text">
+        <h2 class="display h2 small">{{ early ? 'Be one of the first ' + minSites : 'Add your site' }}</h2>
+        <p class="muted">Run a digest, then look at exactly what would be sent. Nothing leaves without a yes, and you see where each number stands among the published quartiles.</p>
+        <a routerLink="/privacy">What share sends, and what it never does</a>
+      </div>
+      <div class="stack add-text">
+        <pre class="code">{{ commands }}</pre>
+        <div class="row">
+          <app-copy [text]="dryRun" label="Copy the dry-run command" />&ngsp;
+          <a [href]="json">The numbers as JSON</a>
+        </div>
+      </div>
+    </section>
+  </ng-template>
+
+</main>

@@ -108,6 +108,23 @@ test('lists prints every source', (t) => {
     assert.ok(lines.some(l => /^googlebot\s+4\s/.test(l)));
 });
 
+test('the feed by default, the vendors with --no-feed or when the feed fails', (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-feed-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    // Every fetch is written down and fails, so the run shows the order it tried things in.
+    const RECORD = 'data:text/javascript,globalThis.fetch=async(u)=>{process.stderr.write("FETCH "+u+"\\n");throw new Error("offline in tests")}';
+    const go = (args, env = {}) => spawnSync(process.execPath, ['--import', RECORD, BIN, ...args], {
+        env: { ...process.env, SITEREAD_FEED_URL: '', SITEREAD_CACHE: join(dir, `${Math.random()}.json`), ...env }, encoding: 'utf8',
+    });
+    const fetched = r => [...r.stderr.matchAll(/^FETCH (\S+)$/gm)].map(m => m[1]);
+    const byDefault = fetched(go(['lists']));
+    assert.equal(byDefault[0], 'https://api.siteread.dev/v1/lists.json', 'the feed first');
+    assert.ok(byDefault.includes('https://openai.com/chatgpt-user.json'), 'then the vendors, since the feed failed');
+    assert.ok(!fetched(go(['lists', '--no-feed'])).some(u => u.includes('siteread.dev')), '--no-feed never asks the feed');
+    assert.ok(!fetched(go(['lists'], { SITEREAD_FEED_URL: 'off' })).some(u => u.includes('siteread.dev')));
+    assert.equal(fetched(go(['lists'], { SITEREAD_FEED_URL: 'http://127.0.0.1:8787/v1/lists.json' }))[0], 'http://127.0.0.1:8787/v1/lists.json');
+});
+
 test('usage errors exit 1; --help exits 0', () => {
     assert.equal(run(['--help']).code, 0);
     assert.match(run(['--help']).out, /siteread check <ip> "<user-agent>"/);

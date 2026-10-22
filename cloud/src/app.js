@@ -2,7 +2,7 @@
 // node:http (src/node.js) or any host that speaks Request/Response.
 //
 //   GET  /v1/lists.json        the merged crawler-list feed (feed.js)
-//   POST /v1/share             one site's week of aggregates → stored → its percentiles
+//   POST /v1/share             one site's week of aggregates → stored → its standing (benchmark.js)
 //   GET  /v1/benchmark.json    the public aggregate (benchmark.js)
 //   GET  /v1/operator/status   counts for the operator page; needs the operator token (config.js)
 //   GET  /healthz              when the feed and the aggregate were last built
@@ -14,21 +14,64 @@
 // are counted by a fixed code, never by their message, which can echo a field name the sender
 // chose. The operator status is counts only: no row, no id, no label it was not already public.
 //
-// ABUSE. Anyone can post. A site re-sharing a week replaces its row; a cap on new sites per day
-// bounds how fast a flood of made-up ids can move the benchmark; bounds on every metric refuse
-// garbage. It is a benchmark of what people chose to send, and the page says so.
+// USAGE. siteread analyses sites, so it measures its own service too, without an address: every
+// request is counted per day by route and by kind of client (clientOf), and a siteread client by
+// its version. Each client refetches the feed at most once a day, so feed fetches a day are about
+// the number of installs using it. No User-Agent string is kept, only the kind and a version that
+// parses as one, at most MAX_VERSIONS a day, so a flood of made-up agents cannot grow the counts.
+//
+// ABUSE. Anyone can post. A site re-sharing a week replaces its row; a new site id must carry a
+// proof of work whose price rises with the day's new sites (share.js, PROOF OF WORK), which bounds
+// how fast a flood of made-up ids can move the benchmark without a cap one sender could use up;
+// bounds on every metric refuse garbage. It is a benchmark of what people chose to send, and the
+// page says so.
 
-import { validateShare, isoWeek, weekStart, addWeeks } from '../../packages/verify/src/share.js';
+import { validateShare, isoWeek, weekStart, addWeeks, proofBitsFor, leadingZeroBits, PROOF_PREFIX, PROOF_BASE_BITS } from '../../packages/verify/src/share.js';
 import { VERSION } from '../../packages/verify/src/version.js';
 import { buildFeed, FEED_KEY } from './feed.js';
-import { compare, aggregate, windowOf, MIN_SITES } from './benchmark.js';
+import { standing, aggregate, MIN_SITES } from './benchmark.js';
 
 export const BENCHMARK_KEY = 'benchmark.json';
 export const LAST_RUN_KEY = 'feed/last-run.json';
 export const MAX_SHARE_BYTES = 8 * 1024;
 export const MAX_WEEKS_BACK = 8;
-export const MAX_NEW_SITES_PER_DAY = 100;
 export const STATS_DAYS = 30;
+export const MAX_VERSIONS = 20;
+
+// The routes counted, by path; anything else is `other` (a 404, a probe).
+const ROUTE_OF = {
+    '/v1/lists.json': 'feed', '/v1/share': 'share', '/v1/benchmark.json': 'benchmark',
+    '/v1/operator/status': 'operator', '/healthz': 'health',
+};
+const VERSION_UA_RE = /^siteread\/(\d{1,3}\.\d{1,3}\.\d{1,3}(?:-[0-9a-z.]{1,20})?)(?:\s|$)/i;
+
+/**
+ * The kind of client behind a request: `local` (it did not come through the proxy: the site's own
+ * server rendering a page, or a job on the VM), `siteread` with its version, `browser`, `other`.
+ * Read from whether the proxy's x-forwarded-proto is present and from the User-Agent; never from
+ * an address.
+ */
+export function clientOf(request) {
+    if (!request.headers.has('x-forwarded-proto')) return { client: 'local', version: null };
+    const ua = request.headers.get('user-agent') ?? '';
+    const m = VERSION_UA_RE.exec(ua);
+    if (m) return { client: 'siteread', version: m[1].toLowerCase() };
+    return { client: /^Mozilla\//.test(ua) ? 'browser' : 'other', version: null };
+}
+
+const emptyCounts = () => ({ taken: 0, refused: {}, hits: {}, versions: {} });
+
+/** Adds one day's counts into another, in place. */
+function mergeCounts(into, c) {
+    into.taken += c.taken ?? 0;
+    for (const [k, n] of Object.entries(c.refused ?? {})) into.refused[k] = (into.refused[k] ?? 0) + n;
+    for (const [route, by] of Object.entries(c.hits ?? {})) {
+        const r = (into.hits[route] ??= {});
+        for (const [client, n] of Object.entries(by)) r[client] = (r[client] ?? 0) + n;
+    }
+    for (const [v, n] of Object.entries(c.versions ?? {})) into.versions[v] = (into.versions[v] ?? 0) + n;
+    return into;
+}
 
 const DAY = 86_400_000;
 const JSON_TYPE = { 'content-type': 'application/json; charset=utf-8' };
@@ -64,6 +107,14 @@ async function readCapped(request, max) {
     return new TextDecoder().decode(buf);
 }
 
+// Does `nonce` prove work for this id: SHA-256(prefix, id, nonce) with `bits` leading zero bits?
+// Web Crypto, like sameSecret, so the handler runs wherever fetch does.
+async function proofHolds(id, nonce, bits) {
+    if (typeof nonce !== 'string') return false;
+    const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${PROOF_PREFIX}${id}:${nonce}`));
+    return leadingZeroBits(new Uint8Array(d)) >= bits;
+}
+
 // Two secrets compared in constant time: SHA-256 makes the lengths equal, the XOR loop never
 // stops early. Web Crypto, so it runs wherever the handler does.
 async function sameSecret(a, b) {
@@ -88,18 +139,31 @@ async function sameSecret(a, b) {
 export function createApp({
     store, now = Date.now, fetch: fetchImpl = globalThis.fetch, log = console,
     publicUrl = 'https://siteread.dev', minSites = MIN_SITES,
-    maxNewSitesPerDay = MAX_NEW_SITES_PER_DAY, maxWeeksBack = MAX_WEEKS_BACK,
+    proofBaseBits = PROOF_BASE_BITS, maxWeeksBack = MAX_WEEKS_BACK,
     named = new Map(), operatorToken = null, operatorOrigin = 'https://siteread.dev',
 } = {}) {
-    // day → { taken, refused: { code → n } }, merged into stats/<day>.json by flushStats(): one
-    // store write an hour instead of one per refused request.
+    // day → { taken, refused: { code → n }, hits: { route → { client → n } }, versions: { v → n } },
+    // merged into stats/<day>.json by flushStats(): one store write an hour instead of one per request.
     const counts = new Map();
-    function count(code) {
+    function today() {
         const day = isoDay(now());
         let c = counts.get(day);
-        if (!c) { c = { taken: 0, refused: {} }; counts.set(day, c); }
+        if (!c) { c = emptyCounts(); counts.set(day, c); }
+        return c;
+    }
+    function count(code) {
+        const c = today();
         if (code === 'taken') c.taken++;
         else c.refused[code] = (c.refused[code] ?? 0) + 1;
+    }
+    function hit(route, request) {
+        const c = today();
+        const { client, version } = clientOf(request);
+        const r = (c.hits[route] ??= {});
+        r[client] = (r[client] ?? 0) + 1;
+        if (version && (Object.hasOwn(c.versions, version) || Object.keys(c.versions).length < MAX_VERSIONS)) {
+            c.versions[version] = (c.versions[version] ?? 0) + 1;
+        }
     }
     const refused = (code, status, error, headers) => { count(code); return refuse(status, error, headers); };
 
@@ -141,8 +205,12 @@ export function createApp({
 
         const today = isoDay(t);
         if ((await store.get(`sites/${s.id}`)) == null) {
-            if ((await store.list(`new/${today}/`)).length >= maxNewSitesPerDay) {
-                return refused('new-site-cap', 429, 'too many new sites today; try again tomorrow', { 'retry-after': '3600' });
+            // A new id pays for itself, at today's price; the answer names the price so the CLI can
+            // make a stronger proof and come back.
+            const need = proofBitsFor((await store.list(`new/${today}/`)).length, proofBaseBits);
+            if (need > 0 && !(await proofHolds(s.id, s.proof, need))) {
+                count('proof');
+                return json(400, { ok: false, error: `a new site needs a proof of work of ${need} bits today`, need });
             }
             await store.put(`new/${today}/${s.id}`, '1');
             await store.put(`sites/${s.id}`, JSON.stringify({ firstSharedOn: today }));
@@ -150,8 +218,8 @@ export function createApp({
         await store.put(`shares/${s.week}/${s.id}.json`, JSON.stringify({ ...s, receivedOn: today }));
         count('taken');
 
-        const rows = (await Promise.all(windowOf(s.week).map(w => rowsUnder(`shares/${w}/`)))).flat();
-        return json(200, { ok: true, ...compare(rows, s), benchmark: `${publicUrl}/benchmark` });
+        // Against the published snapshot, never the live rows: see standing().
+        return json(200, { ok: true, ...standing(s, await readJson(BENCHMARK_KEY)), benchmark: `${publicUrl}/benchmark` });
     }
 
     async function health() {
@@ -210,20 +278,16 @@ export function createApp({
                 named: (bench.named ?? []).map(n => ({ label: n.label, week: n.week })),
             } : null,
             newSites: days.map(day => ({ day, sites: newPerDay.get(day) })),
-            newSitesToday: { sites: newPerDay.get(today), max: maxNewSitesPerDay },
-            requests: days.map(day => ({ day, taken: stats.get(day)?.taken ?? 0, refused: stats.get(day)?.refused ?? {} })),
+            // What a new site's proof costs right now, in bits: it rises with today's new sites.
+            newSitesToday: { sites: newPerDay.get(today), proofBits: proofBitsFor((await store.list(`new/${today}/`)).length, proofBaseBits) },
+            requests: days.map(day => ({ day, ...(stats.get(day) ?? emptyCounts()) })),
         }, headers);
     }
 
     // Stored counts plus what this process has not flushed yet.
     async function statsByDay() {
         const out = new Map();
-        const add = (day, c) => {
-            const o = out.get(day) ?? { taken: 0, refused: {} };
-            o.taken += c.taken ?? 0;
-            for (const [k, n] of Object.entries(c.refused ?? {})) o.refused[k] = (o.refused[k] ?? 0) + n;
-            out.set(day, o);
-        };
+        const add = (day, c) => out.set(day, mergeCounts(out.get(day) ?? emptyCounts(), c));
         for (const k of await store.list('stats/')) {
             const c = await readJson(k);
             if (c) add(k.slice('stats/'.length, -'.json'.length), c);
@@ -242,7 +306,9 @@ export function createApp({
 
     /** The fetch handler. Never throws: a failure is a 500 with no detail. */
     async function handle(request) {
-        const route = routes[new URL(request.url).pathname];
+        const path = new URL(request.url).pathname;
+        hit(ROUTE_OF[path] ?? 'other', request);
+        const route = routes[path];
         if (!route) return refuse(404, 'not found');
         const fn = route[request.method === 'HEAD' ? 'GET' : request.method];
         if (!fn) return refuse(405, `${request.method} is not allowed here`, { allow: Object.keys(route).join(', ') });
@@ -282,10 +348,7 @@ export function createApp({
         counts.clear();
         for (const [day, c] of pending) {
             const key = `stats/${day}.json`;
-            const o = (await readJson(key)) ?? { taken: 0, refused: {} };
-            o.taken += c.taken;
-            for (const [k, n] of Object.entries(c.refused)) o.refused[k] = (o.refused[k] ?? 0) + n;
-            await store.put(key, JSON.stringify(o));
+            await store.put(key, JSON.stringify(mergeCounts(mergeCounts(emptyCounts(), (await readJson(key)) ?? {}), c)));
         }
         const oldest = isoDay(now() - STATS_DAYS * DAY);
         for (const k of await store.list('stats/')) if (k.slice('stats/'.length, -'.json'.length) < oldest) await store.delete(k);

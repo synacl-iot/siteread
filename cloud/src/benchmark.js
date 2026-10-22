@@ -1,4 +1,5 @@
-// Shares → percentiles (the answer `share` gets back) and the public aggregate (benchmark.json).
+// Shares → the public aggregate (benchmark.json), and a share's standing against it (the answer
+// `share` gets back).
 //
 // Who is compared: each site's latest share among the 4 ISO weeks ending at the week in question.
 // One row per site, so a site that shares every week counts once, and a site that skipped last
@@ -60,16 +61,37 @@ export function quantile(sorted, q) {
     return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
 }
 
-/** What `share` gets back for one share, compared with `rows` (which include it). */
-export function compare(rows, share) {
-    const pop = latestPerSite(rows, share.week);
-    const window = windowOf(share.week);
-    const percentiles = {};
+// What a share is told: for each of its numbers, the band it falls in among the quartiles
+// benchmark.json already publishes, and only where it publishes them; elsewhere, how many sites
+// report that number. WHY: the answer used to be an exact percentile among the live rows, with no
+// threshold, and a share of the same id and week replaces the row and costs nothing against the
+// new-site cap. So one sender could move its own value and binary-search everyone else's: with 3
+// sites in the window, one id got 137, 912 and 4410 back exactly in 90 requests, undoing the rule
+// that only quartiles of 10 anonymous sites are ever published. A band against published numbers,
+// from the hourly snapshot and not the live rows, tells a sender nothing the page does not.
+export const BANDS = Object.freeze(['below-p25', 'p25-p50', 'p50-p75', 'p75-up']);
+
+/** Where `value` falls among a metric's published quartiles: a tie goes to the band above. */
+export function bandOf(value, m) {
+    if (value < m.p25) return 'below-p25';
+    if (value < m.p50) return 'p25-p50';
+    if (value < m.p75) return 'p50-p75';
+    return 'p75-up';
+}
+
+/** What `share` gets back for one share, against `snapshot` (benchmark.json, or null before the first build). */
+export function standing(share, snapshot) {
+    const metrics = {};
     for (const [k, value] of Object.entries(share.metrics)) {
-        const values = pop.filter(r => Object.hasOwn(r.metrics, k)).map(r => r.metrics[k]);
-        percentiles[k] = { value, percentile: percentileOf(values, value), sites: values.length };
+        const m = snapshot?.metrics?.[k];
+        const out = { value, sites: m?.sites ?? 0 };
+        if (m && m.p25 != null && m.p50 != null && m.p75 != null) out.band = bandOf(value, m);
+        metrics[k] = out;
     }
-    return { week: share.week, window: { from: window[0], to: window.at(-1) }, sites: pop.length, percentiles };
+    const against = snapshot
+        ? { generatedAt: snapshot.generatedAt, window: snapshot.window, sites: snapshot.sites, minSites: snapshot.minSites }
+        : null;
+    return { week: share.week, against, metrics };
 }
 
 /**

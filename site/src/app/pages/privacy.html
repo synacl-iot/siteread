@@ -1,0 +1,64 @@
+<main class="wrap page privacy">
+
+  <section class="stack privacy-head">
+    <h1 class="display h1 small">What siteread sends, and what it never does</h1>
+    <p class="lede">Your log holds your visitors' IP addresses and every URL on your site. None of that leaves your machine. The one thing that can leave is a week of totals, and only when you say yes.</p>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <span class="tag">check, digest</span>
+      <h2 class="card-title">On your machine</h2>
+      <p>Nothing is sent except plain GETs of public crawler lists, with the user-agent <code>siteread/{{ version }}</code>. There is no reverse-DNS check either: a PTR lookup would send your visitor's IP to your resolver.</p>
+    </div>
+    <div class="card">
+      <span class="tag">share</span>
+      <h2 class="card-title">Only on a yes</h2>
+      <p>It prints every byte it would send, then asks. <code>--dry-run</code> prints and stops. What it sends is exactly what it printed.</p>
+    </div>
+    <div class="card">
+      <span class="tag">the feed</span>
+      <h2 class="card-title">Public data, on by default</h2>
+      <p>The CLI gets every vendor's IP list from one file at api.siteread.dev, one request instead of nine, and from the vendors themselves whenever that fails. <code>--no-feed</code> skips it. The service counts fetches per day and the siteread version that made them; nothing about who.</p>
+    </div>
+  </section>
+
+  <section class="grid wide privacy-detail">
+    <div class="stack">
+      <h2 class="display h2 small">A whole share, byte for byte</h2>
+      <p class="muted">From the test site. Thirteen numbers for the last 7 days, a week label, the version, a random id, and the id's proof of work.</p>
+      <pre class="code payload">{{ payload }}</pre>
+    </div>
+    <div class="stack loose">
+      <div class="stack tight-stack">
+        <h3>Never sent</h3>
+        <ul class="plain">
+          <li>hostnames, URLs or paths</li>
+          <li>visitor IP addresses</li>
+          <li>user-agents and referrers</li>
+          <li>search query text</li>
+          <li>your goal names</li>
+        </ul>
+        <p class="small muted">The payload is built from a fixed list of numbers, and the service refuses any field it does not know rather than dropping it.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>What the service keeps</h3>
+        <p class="small">The share as sent, plus the day it arrived (not the time). Not your IP address: the code never reads it, and api.siteread.dev, where shares and the feed go, keeps no log. Per day it counts requests by route and by kind of client (siteread and its version, a browser, anything else); it keeps no user-agent string.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>What gets published</h3>
+        <p class="small">Per number, the 25th, 50th and 75th percentile once 10 anonymous sites report it, and how many sites shared each week. Never an anonymous site's row, never an id. synacl.com and siteread.dev are named, with their own numbers, because their owner chose that.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>Your id</h3>
+        <p class="small">128 random bits in <code>.siteread/share-id</code>, made the first time you share. It lets the benchmark count sites instead of shares, and a second share of the same week replaces the first. Delete the file to start over as a new site. Its first share also carries a proof of work tied to the id, a few seconds of computing once: made-up sites cost real time, so nobody floods the benchmark for free, and no address is needed to stop them.</p>
+      </div>
+      <div class="stack tight-stack">
+        <h3>This site</h3>
+        <p class="small">No cookies, no analytics scripts, no third-party requests: the fonts are served from siteread.dev itself.</p>
+        <p class="small">Like the sites siteread is made for, siteread.dev keeps an ordinary access log of its pages: each request's address, time, page, referrer and user-agent. Only root can read it on the server. Once a week its owner copies it to their own machine and runs siteread on it, to see who read this site. Every line is deleted after 28 days, in both places. It is never shared or sent anywhere else, and api.siteread.dev keeps no log at all.</p>
+      </div>
+    </div>
+  </section>
+
+</main>

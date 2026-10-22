@@ -4,19 +4,21 @@
 //   siteread check <ip> "<user-agent>"   exit 0 verified · 2 spoofed · 3 unknown / n/a · 1 usage or error
 //   siteread lists
 //   siteread digest --gsc <export> --log <file> …   JSON for the seo-read skill's weekly memo
-//   siteread share [<digest>]           opt-in: one week's aggregates → the benchmark, a percentile back
+//   siteread share [<digest>]           opt-in: one week's aggregates → the benchmark, where you stand back
 //   siteread --help
 //
 // Lists are cached in one file (os.tmpdir()/siteread/lists.json, or $SITEREAD_CACHE) and
-// refetched only when older than 24 h. The only network traffic is GETs of the vendors' lists,
-// and `share`, which prints the exact bytes it would send and sends only on a yes.
+// refetched only when older than 24 h, from the siteread feed (one GET of public data; the service
+// keeps no address) or, with --no-feed and whenever the feed fails, from each vendor. The only
+// other traffic is `share`, which prints the exact bytes it would send and sends only on a yes.
 
 import os from 'node:os';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { createVerifier, fileStore, detectAgent, detectCrawler, digest, parseGoal, sharePayload, SHARE_METRICS, SHARE_URL, VERSION } from '../src/index.js';
+import { createVerifier, fileStore, detectAgent, detectCrawler, digest, parseGoal, sharePayload, SHARE_METRICS, SHARE_URL, FEED_URL, VERSION } from '../src/index.js';
+import { leadingZeroBits, PROOF_BASE_BITS, PROOF_PREFIX } from '../src/share.js';
 
 const EXIT = { verified: 0, spoofed: 2, unknown: 3, 'n/a': 3, usage: 1 };
 const cacheFile = process.env.SITEREAD_CACHE || path.join(os.tmpdir(), 'siteread', 'lists.json');
@@ -29,18 +31,23 @@ Usage:
   siteread digest [options]            a Search Console export + access log -> JSON numbers
                                        for a weekly read (the seo-read skill writes the memo)
   siteread share [<digest.json|dir>]   opt-in: send one week of a digest's aggregate numbers
-                                       to the public benchmark and get your percentiles back
+                                       to the public benchmark and see where you stand
                                        (default: the newest digest in .siteread/digests)
   siteread --help | --version
 
 Options:
   --no-cache   refetch every list now (a copy younger than 24 h is otherwise reused;
                a failed fetch still falls back to the cached copy)
+  --no-feed    fetch each list from its vendor instead of the siteread feed
+               (also SITEREAD_FEED_URL=off; SITEREAD_FEED_URL=<url> reads another feed)
   --json       print the full result as JSON
 
 Digest options (at least one of --gsc / --log):
   --gsc <zip|dir>        Search Console Performance export (Export -> Download CSV)
-  --log <file>           access log, nginx/Apache combined, .gz ok (repeat for several)
+  --log <file>           access log: nginx/Apache combined, Caddy JSON or nginx JSON, .gz ok
+                         (repeat for several)
+  --host <name>          keep only requests to this host, for a log of several sites (repeatable;
+                         JSON logs carry the host, combined does not)
   --site <host>          your site's host (guessed from Referers otherwise)
   --sitemap <file>       a local sitemap.xml: count crawler fetches on its URLs only
   --from / --to <day>    keep only log days in this range (YYYY-MM-DD)
@@ -71,11 +78,12 @@ Exit codes (check):
   1            usage error, or not an IP address
 
 Cache: ${cacheFile}  (override with SITEREAD_CACHE)
-Nothing leaves this machine except GETs of the vendors' public IP lists, and a share you approve.`;
+Nothing leaves this machine except GETs of public crawler lists (the siteread feed, or with
+--no-feed the vendors' own), and a share you approve.`;
 
 // Options that take a value (digest only). Each keeps every value given, in order.
 const VALUE_OPTS = new Set(['--gsc', '--log', '--out', '--site', '--sitemap', '--from', '--to', '--split', '--goal',
-    '--team-path', '--exclude-ip', '--allow-path', '--tz', '--prev', '--limit', '--endpoint', '--id-file']);
+    '--team-path', '--exclude-ip', '--allow-path', '--tz', '--prev', '--limit', '--endpoint', '--id-file', '--host']);
 
 function parseArgs(argv) {
     const flags = new Set();
@@ -151,10 +159,18 @@ function describe(ip, ua, r, list) {
     }
 }
 
+// The feed by default, as the charter has it once the feed exists: one GET instead of nine, of
+// public data, from a service that keeps no address. What it cannot give comes from the vendors.
+function newVerifier(flags) {
+    const env = process.env.SITEREAD_FEED_URL;
+    const feedUrl = flags.has('--no-feed') || env === 'off' ? null : (env || FEED_URL);
+    return createVerifier({ store: fileStore(cacheFile), log: {}, feedUrl, fallback: true });
+}
+
 async function cmdCheck({ flags, pos }) {
     if (pos.length !== 3) return usage('check takes exactly two arguments: <ip> "<user-agent>" (quote the user-agent)');
     const [, ip, ua] = pos;
-    const verifier = createVerifier({ store: fileStore(cacheFile), log: {} });
+    const verifier = newVerifier(flags);
     let r = verifier.check(ip, ua);
     if (r.reason === 'invalid-ip') return usage(`"${ip}" is not an IP address`);
     // Only touch the network when the claimed agent has a list to check against.
@@ -174,7 +190,7 @@ async function cmdCheck({ flags, pos }) {
 
 async function cmdLists({ flags, pos }) {
     if (pos.length !== 1) return usage('lists takes no arguments');
-    const verifier = createVerifier({ store: fileStore(cacheFile), log: {} });
+    const verifier = newVerifier(flags);
     const result = await verifier.refresh({ force: flags.has('--no-cache') });
     reportFailures(result, verifier);
     const rows = verifier.lists();
@@ -217,7 +233,7 @@ async function cmdDigest({ flags, opts, pos }) {
 
     let verifier = null;
     if (logs.length) {
-        verifier = createVerifier({ store: fileStore(cacheFile), log: {} });
+        verifier = newVerifier(flags);
         if (flags.has('--offline')) {
             await verifier.load();
         } else {
@@ -234,6 +250,7 @@ async function cmdDigest({ flags, opts, pos }) {
         site: one('--site'), tz, from: one('--from'), to: one('--to'), goals,
         teamPath: re('--team-path'), allowPath: re('--allow-path'),
         excludeIps: new Set((opts.get('--exclude-ip') ?? []).flatMap(s => s.split(',')).map(s => s.trim()).filter(Boolean)),
+        hosts: opts.get('--host') ?? [],
     });
     if (verifier) out.vendorLists = verifier.lists().map(({ agent, prefixes, fetchedAt }) => ({ agent, prefixes, fetchedAt }));
     for (const w of out.warnings) process.stderr.write(`siteread: ${w}\n`);
@@ -265,7 +282,10 @@ const USER_AGENT = `siteread/${VERSION} (+https://www.npmjs.com/package/siteread
 const DIGEST_RE = /^\d{4}-\d{2}-\d{2}\.json$/;
 // A server's words go to the terminal: no escape sequences from someone else's endpoint.
 const clean = s => String(s ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
-const ordinal = n => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+const BAND_TEXT = Object.freeze({
+    'below-p25': 'below the 25th percentile', 'p25-p50': '25th to 50th percentile',
+    'p50-p75': '50th to 75th percentile', 'p75-up': '75th percentile or above',
+});
 
 /** The site's random share id, made (0600) on first use. */
 function shareId(file) {
@@ -279,6 +299,32 @@ function shareId(file) {
     }
     if (!/^[0-9a-f]{32}$/.test(id)) throw new UsageError(`${file} does not hold a share id; delete it to make a new one`);
     return id;
+}
+
+// A new site's proof of work (src/share.js, PROOF OF WORK), kept next to the id as "nonce bits id"
+// so it is made once. A file for another id, or one that does not hold up, is made again.
+function readProof(file, id) {
+    let parts;
+    try { parts = readFileSync(file, 'utf8').trim().split(/\s+/); } catch { return null; }
+    const [nonce, bits, forId] = parts;
+    if (forId !== id || !/^\d{1,20}$/.test(nonce ?? '')) return null;
+    const got = leadingZeroBits(createHash('sha256').update(`${PROOF_PREFIX}${id}:${nonce}`).digest());
+    return got >= Number(bits) ? { nonce, bits: got } : null;
+}
+
+function makeProof(file, id, bits) {
+    process.stderr.write(`siteread: making this site's proof of work (${bits} bits; seconds on a laptop, once, so made-up sites cost real time)\n`);
+    const t0 = Date.now();
+    for (let n = 0; ; n++) {
+        const nonce = String(n);
+        const got = leadingZeroBits(createHash('sha256').update(`${PROOF_PREFIX}${id}:${nonce}`).digest());
+        if (got >= bits) {
+            mkdirSync(path.dirname(file), { recursive: true });
+            writeFileSync(file, `${nonce} ${got} ${id}\n`, { mode: 0o600 });
+            process.stderr.write(`siteread: made it in ${((Date.now() - t0) / 1000).toFixed(1)} s, kept in ${file}\n`);
+            return { nonce, bits: got };
+        }
+    }
 }
 
 // Plain http only to this machine: a share crosses the internet over TLS or not at all.
@@ -304,7 +350,15 @@ async function cmdShare({ flags, opts, pos }) {
     if (!endpointOk(endpoint)) return usage(`--endpoint must be an https:// URL (plain http only to localhost): ${endpoint}`);
 
     let built;
-    try { built = sharePayload(d, { id: shareId(one('--id-file') ?? path.join('.siteread', 'share-id')) }); } catch (err) {
+    const idFile = one('--id-file') ?? path.join('.siteread', 'share-id');
+    const proofFile = path.join(path.dirname(idFile), 'share-proof');
+    try {
+        const id = shareId(idFile);
+        // A known site never needs its proof again; a new one needs it at today's price, which the
+        // service names when it asks for more. SITEREAD_PROOF_BITS only sets where the first try starts.
+        const proof = readProof(proofFile, id) ?? makeProof(proofFile, id, Number(process.env.SITEREAD_PROOF_BITS) || PROOF_BASE_BITS);
+        built = sharePayload(d, { id, proof: proof.nonce });
+    } catch (err) {
         if (err instanceof UsageError) throw err;
         process.stderr.write(`siteread: share: ${err.message}\n`);
         return 1;
@@ -336,19 +390,33 @@ async function cmdShare({ flags, opts, pos }) {
     }
     if (!res.ok || r?.ok !== true) {
         process.stderr.write(`siteread: ${endpoint} did not take it: HTTP ${res.status}${r?.error ? `: ${clean(r.error)}` : ''}\n`);
+        // A busy day for new sites: make the stronger proof now, and let the user send again (the
+        // payload changes, so it is printed again before anything goes out).
+        const need = Number(r?.need);
+        if (Number.isInteger(need) && need > 0 && need <= 40) {
+            makeProof(proofFile, built.payload.id, need);
+            process.stderr.write('siteread: run share again to send it with the new proof\n');
+        }
         return 1;
     }
-    const rows = Object.entries(r.percentiles ?? {}).filter(([, p]) => p && Number.isFinite(p.percentile));
+    // Where each number falls among the quartiles the benchmark publishes, and only where it
+    // publishes them: the service never answers finer than the public page (cloud/src/benchmark.js).
+    const a = r.against;
+    const min = Number(a?.minSites) || 10;
+    const rows = Object.entries(r.metrics ?? {}).filter(([, m]) => m && typeof m === 'object');
+    const where = m => BAND_TEXT[m.band] ?? `${Number(m.sites) || 0} site${Number(m.sites) === 1 ? '' : 's'}; shown from ${min}`;
     const w = Math.max(6, ...rows.map(([k]) => k.length));
-    const sites = Number(r.sites) || 0;
+    const ww = Math.max(5, ...rows.map(([, m]) => where(m).length));
     const out = [
-        `sent. ${clean(r.week)} compared with ${sites} site${sites === 1 ? '' : 's'}: each site's latest share, ${clean(r.window?.from)} to ${clean(r.window?.to)}`,
+        a
+            ? `sent ${clean(r.week)}. Against the benchmark built ${clean(a.generatedAt).slice(0, 16).replace('T', ' ')} UTC: ${Number(a.sites) || 0} anonymous site${Number(a.sites) === 1 ? '' : 's'}, ${clean(a.window?.from)} to ${clean(a.window?.to)}`
+            : `sent ${clean(r.week)}. The benchmark has not been built yet; it is rebuilt every hour.`,
         '',
-        `${'metric'.padEnd(w)}  ${'yours'.padStart(9)}  percentile  sites`,
-        ...rows.map(([k, p]) => `${clean(k).padEnd(w)}  ${clean(p.value).padStart(9)}  ${ordinal(Math.round(p.percentile)).padStart(10)}  ${clean(p.sites).padStart(5)}`
-            + (SHARE_METRICS[k]?.lowerIsBetter ? '  (lower is better)' : '')),
+        `${'metric'.padEnd(w)}  ${'yours'.padStart(9)}  ${'where'.padEnd(ww)}`,
+        ...rows.map(([k, m]) => `${clean(k).padEnd(w)}  ${clean(m.value).padStart(9)}  ${where(m).padEnd(ww)}`.trimEnd()
+            + (SHARE_METRICS[k]?.lowerIsBetter && m.band ? '  (lower is better)' : '')),
     ];
-    if (sites < 2) out.push('', 'Yours is the only site in that window so far: every percentile is 50th until others share.');
+    if (!rows.some(([, m]) => m.band)) out.push('', `No number has ${min} anonymous sites yet, so none shows where you stand; your share counts toward them.`);
     if (r.benchmark) out.push('', `benchmark: ${clean(r.benchmark)}`);
     process.stdout.write(`${out.join('\n')}\n`);
     return 0;
@@ -360,7 +428,7 @@ async function main(argv) {
     const { flags, pos } = args;
     if (flags.has('--help') || flags.has('-h') || pos[0] === 'help') { process.stdout.write(`${HELP}\n`); return 0; }
     if (flags.has('--version') || flags.has('-v')) { process.stdout.write(`${VERSION}\n`); return 0; }
-    const known = new Set(['--no-cache', '--json', '--offline', '--dry-run', '--yes']);
+    const known = new Set(['--no-cache', '--no-feed', '--json', '--offline', '--dry-run', '--yes']);
     const bad = [...flags].find(f => !known.has(f));
     if (bad) return usage(`unknown option ${bad}`);
     if (pos[0] === 'check') return cmdCheck(args);

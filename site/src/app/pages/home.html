@@ -1,0 +1,97 @@
+<main class="wrap page home">
+
+  <section class="stack loose">
+    <p class="eyebrow">One line from an access log, checked</p>
+    <div class="code" role="group" aria-label="An access log line and siteread's verdict">
+      <div class="muted">203.0.113.9 - - [17/Oct/2026:09:14:02 -0700] "GET /pricing/ HTTP/1.1" 200 5120 "-"</div>
+      <div class="muted">  "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot"</div>
+      <div class="verdict"><span class="bad">spoofed</span>   203.0.113.9 claims chatgpt-user (chatgpt, answer) but is not in openai.com/chatgpt-user.json (234 prefixes)</div>
+    </div>
+    <h1 class="display h1 hero-title">Who read your site this week, was it good, and what to write next</h1>
+    <p class="lede">From your server's access log and a Search Console export. Every crawler is checked against the list its vendor publishes, so a scanner wearing ChatGPT's user-agent is not counted as ChatGPT. It runs on your machine and sends nothing unless you choose to share.</p>
+    <div class="row">
+      <code class="cmd">{{ check }}</code>&ngsp;
+      <app-copy [text]="check" />&ngsp;
+      <a routerLink="/benchmark">See how sites compare</a>
+    </div>
+  </section>
+
+  <section class="stack">
+    <div class="stats">
+      <div>
+        <span class="num">217 <span>of 221</span></span>
+        <p>ChatGPT-User requests from outside OpenAI's list came from IPs that also probed for scanner paths.</p>
+      </div>
+      <div>
+        <span class="num">100 %</span>
+        <p>of the requests claiming DeepSeekBot, CCBot, Grok, Perplexity-User or Claude-SearchBot were fake.</p>
+      </div>
+      <div>
+        <span class="num">1 <span>bad link</span></span>
+        <p>was enough for a rule-of-thumb filter to call a real ClaudeBot spoofed. So where a vendor list exists, the list decides.</p>
+      </div>
+    </div>
+    <p class="note">One site's nginx log, 30 days to 2026-10-16.</p>
+  </section>
+
+  <section class="stack loose" aria-labelledby="how">
+    <h2 id="how" class="display h2">How a weekly read works</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag">1 · digest</span>
+        <h3>Turn the files into numbers</h3>
+        <p>People by first touch, Search Console weeks with impression-weighted position, every crawler verified against its vendor's list.</p>
+        <pre class="code small">npx siteread digest --gsc export.zip \
+  --log access.log --out .siteread/digests</pre>
+      </div>
+      <div class="card">
+        <span class="tag">2 · memo</span>
+        <h3>Read it as a dated memo</h3>
+        <p>The seo-read skill for Claude Code writes the week up: what changed, who came from where, which crawler read what, and two to four things to do next.</p>
+        <pre class="code small">"my weekly seo read"</pre>
+      </div>
+      <div class="card">
+        <span class="tag">3 · share, if you want</span>
+        <h3>See where you stand</h3>
+        <p>Send one week's numbers to the benchmark and see where each stands among the published quartiles. It prints every byte first and sends nothing without a yes.</p>
+        <pre class="code small">npx siteread share --dry-run</pre>
+      </div>
+    </div>
+    <p><a routerLink="/docs">Read the docs</a>: every command, the share payload, the library.</p>
+  </section>
+
+  <section class="stack" aria-labelledby="memo">
+    <div class="row between">
+      <h2 id="memo" class="display h2">What the memo says</h2>
+      <span class="note">From the test site example.org, the one the tests run on</span>
+    </div>
+    <div class="card big memo">
+      <p class="mono muted memo-head">### 2026-10-21: GSC 2026-09-21→10-18 (export gsc.zip) + log 2026-10-05→10-18</p>
+      <p class="memo-text">A steady week on small numbers: impressions rose to 34 a day and position improved to 17.9, while clicks stayed at 3. The sample is small, so the read rests on the four-week trend.</p>
+      <div class="table-scroll">
+        <table class="numbers memo-table">
+          <thead>
+            <tr><th scope="col"><span class="visually-hidden">Number</span></th><th scope="col">2026-10-05→10-11</th><th scope="col">2026-10-12→10-18</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Impressions / day</th><td>27</td><td>34</td></tr>
+            <tr><th scope="row">Clicks</th><td>4</td><td>3</td></tr>
+            <tr><th scope="row">CTR</th><td>2.1 %</td><td>1.3 %</td></tr>
+            <tr><th scope="row">Weighted position</th><td>21.4</td><td>17.9</td></tr>
+            <tr><th scope="row">People (log, unique)</th><td>3</td><td>4</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="memo-text small"><strong>Crawlers.</strong> Googlebot, verified, fetched 7 sitemap URLs last week against 4 the week before, and still asks for /old-page/, which is not in the sitemap. ClaudeBot, verified, read 2 pages. One ChatGPT-User request came from outside OpenAI's list: spoofed, not counted.</p>
+    </div>
+  </section>
+
+  <section class="row between cta">
+    <div class="stack cta-text">
+      <h2 class="display h2 small">The benchmark</h2>
+      <p class="muted">Anonymous weekly numbers from sites that chose to share, with the count printed on every row. Small and dated, and it says so.</p>
+    </div>
+    <a routerLink="/benchmark" class="btn primary">Open the benchmark</a>
+  </section>
+
+</main>

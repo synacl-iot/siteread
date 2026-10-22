@@ -49,7 +49,7 @@ with `createVerifier({ feedUrl: 'http://127.0.0.1:8787/v1/lists.json' })`.
 ## The feed
 
 ```json
-{ "siteread": "0.3.0", "generatedAt": "2026-10-21T17:28:48.171Z",
+{ "siteread": "0.2.1", "generatedAt": "2026-10-21T17:28:48.171Z",
   "lists": { "claudebot": { "prefixes": ["216.73.216.0/22", "…"], "fetchedAt": "2026-10-21T17:28:46.433Z",
                             "source": "https://claude.com/crawling/bots.json" }, "…": {} } }
 ```
@@ -66,7 +66,7 @@ The CLI's `siteread share` builds the payload (`packages/verify/src/share.js`) a
 checks it with the same module's `validateShare`:
 
 ```json
-{ "schema": 1, "id": "<32 random hex digits>", "week": "2026-W42", "siteread": "0.3.0",
+{ "schema": 1, "id": "<32 random hex digits>", "week": "2026-W42", "siteread": "0.2.1",
   "metrics": { "people": 4, "gscClicks": 3, "…": 0 } }
 ```
 
@@ -74,13 +74,19 @@ checks it with the same module's `validateShare`:
   number out of bounds, a week that has not started or is more than 8 weeks ago, a body over 8 KiB,
   anything but `application/json`. A client bug that would leak a hostname fails loudly.
 - **One row per site per week:** the id is random and kept by the site (`.siteread/share-id`); the
-  same id and week again replaces the row. At most 100 new ids a day are taken (`429` after), which
-  bounds how fast made-up sites can move the benchmark.
+  same id and week again replaces the row. A new id must carry a proof of work (`proof`, see
+  `PROOF OF WORK` in `share.js`): 22 zero bits on a quiet day, one more for every 50 new sites that
+  day (UTC). That bounds how fast made-up sites can move the benchmark without a cap one sender
+  could use up, and without reading an address. A refusal names the bits (`need`).
 - **Stored:** the validated share plus the day it arrived (`receivedOn`, not a time).
 - **Counted:** shares taken and refused per day, by a fixed refusal code (`SHARE_REFUSALS`), never by
   message, since a message can echo a field name the sender chose.
-- **Answer:** per metric, the mid-rank percentile among each site's latest share in the 4 weeks
-  ending at that week, with the number of sites that report that metric.
+- **Answer:** per metric, its band among the quartiles `benchmark.json` publishes (below the 25th,
+  25th to 50th, 50th to 75th, 75th or above), only where it publishes them, and the number of sites
+  that report it; read from the hourly snapshot, never the live rows. An exact percentile among the
+  live rows let one sender re-share the same week with value after value and recover every other
+  site's number (3 sites, 90 requests); a band against published numbers gives away nothing the
+  page does not.
 
 ## The aggregate
 
@@ -103,7 +109,9 @@ over ten pin none.
 - The public aggregate never carries an anonymous row or any id, and no percentile is published
   from fewer than 10 anonymous sites.
 - The operator status is counts only: feed ages, the last feed run, shares and refusals per day,
-  new sites per day. No row, no id.
+  new sites per day, and requests per day by route and kind of client (`clientOf`: siteread with
+  its version, a browser, anything else, or `local` for what did not come through the proxy). No
+  row, no id, no address, no User-Agent string.
 
 ## License
 

@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync, mkdirSync, copyFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 import {
     digest, parseCsv, parseLine, classifySource, parseSitemap, parseGoal,
     createVerifier, memoryStore, SOURCES, parseList,
@@ -65,6 +66,122 @@ test('parseLine: combined format, offsets to UTC, escaped quotes, junk', () => {
     // Common format (no referer/UA) still parses; a TLS probe does not.
     assert.equal(parseLine('1.2.3.4 - - [05/Oct/2026:20:00:00 +0000] "GET / HTTP/1.1" 200 9').ua, '-');
     assert.equal(parseLine('\\x16\\x03\\x01 garbage'), null);
+});
+
+test('parseLine: a Caddy JSON entry, client_ip over remote_ip, missing headers, junk', () => {
+    const entry = {
+        level: 'info', ts: 1791223200.25, logger: 'http.log.access.log0', msg: 'handled request',
+        request: {
+            remote_ip: '10.0.0.1', remote_port: '5555', client_ip: '1.2.3.4', proto: 'HTTP/2.0', method: 'GET',
+            host: 'example.org', uri: '/a/?x=1', headers: { 'User-Agent': ['Mozilla/5.0 "q"'], Referer: ['https://r.example/'] },
+        },
+        status: 200, size: 9, duration: 0.001,
+    };
+    assert.deepEqual(parseLine(JSON.stringify(entry)), {
+        ip: '1.2.3.4', ts: Date.parse('2026-10-05T18:00:00.250Z'), method: 'GET', target: '/a/?x=1',
+        status: 200, referer: 'https://r.example/', ua: 'Mozilla/5.0 "q"', host: 'example.org',
+    });
+    // Caddy 2.6 has no client_ip; a request with no headers keeps the combined format's "-".
+    const old = { ...entry, request: { remote_ip: '1.2.3.4', method: 'GET', uri: '/', headers: {} } };
+    assert.deepEqual([parseLine(JSON.stringify(old)).ip, parseLine(JSON.stringify(old)).ua, parseLine(JSON.stringify(old)).referer], ['1.2.3.4', '-', '-']);
+    assert.equal(parseLine(JSON.stringify({ ...entry, ts: '2026-10-05T18:00:00Z' })).ts, Date.parse('2026-10-05T18:00:00Z'));
+    // Caddy's own runtime lines, broken JSON and a missing status are not requests.
+    assert.equal(parseLine('{"level":"info","ts":1,"logger":"tls.obtain","msg":"certificate obtained"}'), null);
+    assert.equal(parseLine('{"request": {'), null);
+    assert.equal(parseLine(JSON.stringify({ ...entry, status: undefined })), null);
+});
+
+test('parseLine: nginx JSON, by the common field names, its default escaping, and junk', () => {
+    const want = { ip: '203.0.113.7', ts: Date.parse('2026-10-22T15:18:01Z'), method: 'GET', target: '/guides/x/?a=1', status: 200,
+        referer: 'https://www.google.com/', ua: 'Mozilla/5.0 x', host: 'example.org' };
+    // escape=json, the variables' short names.
+    assert.deepEqual(parseLine(JSON.stringify({ time: '2026-10-22T15:18:01+00:00', host: 'example.org', remote_addr: '203.0.113.7',
+        method: 'GET', request_uri: '/guides/x/?a=1', status: 200, body_bytes_sent: 5120, request_time: 0.004,
+        referer: 'https://www.google.com/', user_agent: 'Mozilla/5.0 x' })), want);
+    // The variables' own names, a string status, $time_local.
+    assert.deepEqual(parseLine(JSON.stringify({ time_local: '22/Oct/2026:15:18:01 +0000', http_host: 'example.org', remote_addr: '203.0.113.7',
+        request_method: 'GET', request_uri: '/guides/x/?a=1', status: '200', http_referer: 'https://www.google.com/',
+        http_user_agent: 'Mozilla/5.0 x' })), want);
+    // $request instead of method + URI; $msec; nginx's default escaping (\x22), which is not JSON.
+    const q = parseLine('{"msec":"1792682281.000","remote_addr":"203.0.113.7","request":"GET /a?b=1 HTTP/1.1","status":404,"http_user_agent":"say \\x22hi\\x22","http_referer":"-"}');
+    assert.deepEqual(q, { ip: '203.0.113.7', ts: Date.parse('2026-10-22T15:18:01Z'), method: 'GET', target: '/a?b=1', status: 404, referer: '-', ua: 'say "hi"', host: null });
+    // $uri (decoded) with $args put back, only when there is no $request_uri.
+    assert.equal(parseLine(JSON.stringify({ ts: 1792682281, remote_addr: '1.2.3.4', method: 'GET', uri: '/c', args: 'd=1', status: 200 })).target, '/c?d=1');
+    // Not a request: no address, no status, a log message.
+    assert.equal(parseLine('{"remote_addr":"1.2.3.4","method":"GET","request_uri":"/","time":"2026-10-22T15:18:01Z"}'), null);
+    assert.equal(parseLine('{"level":"warn","msg":"upstream timed out"}'), null);
+    assert.equal(parseLine('{"remote_addr": '), null);
+});
+
+test('log: a multi-site nginx JSON log, cut with hosts, reads exactly like the site’s combined log', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-nginx-'));
+    try {
+        const files = [];
+        for (const [i, file] of LOGS.entries()) {
+            const text = /\.gz$/.test(file) ? gunzipSync(readFileSync(file)).toString('utf8') : readFileSync(file, 'utf8');
+            const out = [];
+            for (const line of text.split('\n').filter(Boolean)) {
+                const q = parseLine(line);
+                if (!q) { out.push(line); continue; }
+                const row = { time: new Date(q.ts).toISOString().replace('.000Z', '+00:00'), remote_addr: q.ip, method: q.method,
+                    request_uri: q.target, status: q.status, body_bytes_sent: 1, referer: q.referer, user_agent: q.ua };
+                out.push(JSON.stringify({ ...row, host: 'Example.org' }));
+                // The same box serves an API and a device fleet: none of that is this site's readers.
+                out.push(JSON.stringify({ ...row, host: 'api.other.example', request_uri: '/v1/x' }));
+            }
+            files.push(join(dir, `nginx-${i}.log`));
+            writeFileSync(files.at(-1), out.join('\n') + '\n');
+        }
+        const verifier = await fixtureVerifier();
+        const combined = await digest({ logs: LOGS, verifier, ...LOG_OPTS });
+        const nginx = await digest({ logs: files, verifier, ...LOG_OPTS, hosts: ['example.org'] });
+        assert.deepEqual({ ...nginx.log, lines: null }, { ...combined.log, lines: null });
+        assert.deepEqual(nginx.log.lines, { total: 107, unparsed: 1, outOfRange: 0, otherHost: 53, noHost: 0 });
+        // Without the cut, the other host's traffic is counted too.
+        const all = await digest({ logs: files, verifier, ...LOG_OPTS });
+        assert.notDeepEqual(all.log.crawlers, combined.log.crawlers);
+        // A host nobody asked for says so.
+        const none = await digest({ logs: files, verifier, ...LOG_OPTS, hosts: ['nope.example'] });
+        assert.match(none.warnings.join('\n'), /no request was to nope\.example/);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('log: --host on a format with no host keeps the lines and says so', async () => {
+    const d = await digest({ logs: [LOGS[1]], verifier: await fixtureVerifier(), ...LOG_OPTS, hosts: ['example.org'] });
+    assert.equal(d.log.lines.otherHost, 0);
+    assert.equal(d.log.lines.noHost, d.log.lines.total - d.log.lines.unparsed);
+    assert.match(d.warnings.join('\n'), /carry no host, so --host could not filter them/);
+});
+
+test('log: the same requests as Caddy JSON read exactly like the combined log', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-caddy-'));
+    try {
+        const caddyLogs = [];
+        for (const [i, file] of LOGS.entries()) {
+            const text = /\.gz$/.test(file) ? gunzipSync(readFileSync(file)).toString('utf8') : readFileSync(file, 'utf8');
+            const out = text.split('\n').filter(Boolean).map(line => {
+                const q = parseLine(line);
+                if (!q) return line;   // the fixture's junk line stays junk
+                const headers = {};
+                if (q.ua !== '-') headers['User-Agent'] = [q.ua];
+                if (q.referer !== '-') headers.Referer = [q.referer];
+                return JSON.stringify({ level: 'info', ts: q.ts / 1000, logger: 'http.log.access.log0', msg: 'handled request',
+                    request: { remote_ip: q.ip, remote_port: '1', proto: 'HTTP/1.1', method: q.method, host: 'example.org', uri: q.target, headers },
+                    status: q.status, size: 1 });
+            });
+            caddyLogs.push(join(dir, `caddy-${i}.log`));
+            writeFileSync(caddyLogs.at(-1), out.join('\n') + '\n');
+        }
+        const verifier = await fixtureVerifier();
+        const combined = await digest({ logs: LOGS, verifier, ...LOG_OPTS });
+        const caddy = await digest({ logs: caddyLogs, verifier, ...LOG_OPTS });
+        assert.deepEqual(caddy.log, combined.log);
+        assert.equal(caddy.log.people.total, 6);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
 });
 
 test('classifySource: utm_source beats the Referer, AI before search, internal and direct', () => {
@@ -132,7 +249,7 @@ test('gsc: an export with no Dates.csv says what to do', async (t) => {
 test('log: people are browsers that loaded an asset; the rest are set aside by reason', async () => {
     const { log } = await digest({ logs: LOGS, verifier: await fixtureVerifier(), ...LOG_OPTS });
     assert.deepEqual(log.range, { from: '2026-10-05', to: '2026-10-18', tz: 'America/Los_Angeles' });
-    assert.deepEqual(log.lines, { total: 54, unparsed: 1, outOfRange: 0 });
+    assert.deepEqual(log.lines, { total: 54, unparsed: 1, outOfRange: 0, otherHost: 0, noHost: 0 });
     assert.equal(log.people.total, 6);
     assert.deepEqual(log.people.setAside, { bots: 0, scanners: 1, noAssets: 1, team: 1, excluded: 0, cloudFakes: 1, cloudFakeReferers: { google: 1 } });
     assert.equal(log.people.perDay.length, 14, 'every day, zeros included');
@@ -238,6 +355,22 @@ test('cli digest --out: named for the last day, compares with the newest earlier
     assert.deepEqual(out.gsc.queries.rows[0].prev, { impressions: 90, clicks: 1, position: 18 });
     assert.equal(out.gsc.prevTotals.impressions, 400);
     assert.ok(out.log, 'the log half survives the re-run');
+});
+
+test('cli digest --host: cuts a multi-site JSON log to one site', (t) => {
+    const cache = seededCache(t);
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-host-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    const log = join(dir, 'access.json.log');
+    const row = (host, uri) => JSON.stringify({ time: '2026-10-22T15:18:01+00:00', host, remote_addr: '81.2.69.50', method: 'GET',
+        request_uri: uri, status: 200, referer: '-', user_agent: 'Mozilla/5.0' });
+    writeFileSync(log, [row('example.org', '/'), row('api.example.net', '/v1'), row('example.org:443', '/a')].join('\n') + '\n');
+    const r = run(['digest', '--offline', '--log', log, '--host', 'example.org'], cache);
+    assert.equal(r.code, 0, r.err);
+    const out = JSON.parse(r.out);
+    assert.deepEqual(out.log.lines, { total: 3, unparsed: 0, outOfRange: 0, otherHost: 1, noHost: 0 });
+    assert.equal(out.log.site.host, 'example.org');
+    assert.equal(out.log.site.guessed, false);
 });
 
 test('digest warns when the log runs past the export, naming the days to pass', async (t) => {

@@ -61,8 +61,13 @@ export async function digest({ gsc = null, logs = [], verifier = null, prev = nu
         for (const f of logs) await readLog(f, d);
         out.log = d.finish(verifier);
         if (out.log.lines.unparsed > out.log.lines.total / 2) {
-            out.warnings.push(`log: ${out.log.lines.unparsed} of ${out.log.lines.total} lines are not in combined format; counts are from the rest`);
+            out.warnings.push(`log: ${out.log.lines.unparsed} of ${out.log.lines.total} lines are in no format siteread reads (combined, Caddy JSON, nginx JSON); counts are from the rest`);
         }
+        const { total, unparsed, otherHost, noHost } = out.log.lines;
+        if (logOpts.hosts?.length && otherHost && otherHost === total - unparsed) {
+            out.warnings.push(`log: no request was to ${logOpts.hosts.join(' or ')}; every line was for another host`);
+        }
+        if (noHost) out.warnings.push(`log: ${noHost} lines carry no host, so --host could not filter them; they are counted`);
         if (out.log.site.guessed) out.warnings.push(`log: site host guessed as ${out.log.site.host ?? 'unknown'} from Referers; pass --site to set it`);
         if (out.gsc && out.log.range.from) {
             const a = out.gsc.range, b = out.log.range;

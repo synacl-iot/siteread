@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /operator
+
+Sitemap: https://siteread.dev/sitemap.xml

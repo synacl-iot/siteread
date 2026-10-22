@@ -307,3 +307,27 @@ test('feedUrl: one GET of a merged document replaces every vendor fetch', async 
     assert.equal(r2.errors.claudebot, 'HTTP 503');
     assert.equal(v2.check('216.73.216.12', UA.claudebot).verdict, 'verified');
 });
+
+test('feedUrl with fallback: what the feed cannot give comes from the vendors; nothing more', async () => {
+    const FEED = 'https://feed.example/v1/lists.json';
+    const vendorAt = '2026-10-20T18:00:00.000Z';
+    const claude = 'https://claude.com/crawling/bots.json';
+    // The feed has the Claude list only; every vendor answers for itself.
+    const feed = { lists: { claudebot: { prefixes: ['216.73.216.0/22'], fetchedAt: vendorAt } } };
+    const fetch = stubFetch((url) => (url === FEED ? new Response(JSON.stringify(feed), { status: 200 }) : null));
+    const v = createVerifier({ fetch, now: clock(), store: memoryStore(), feedUrl: FEED, fallback: true, log: quiet });
+    const r = await v.refresh();
+    assert.equal(fetch.calls[0], FEED, 'the feed first');
+    assert.ok(fetch.calls.includes('https://www.bing.com/toolbox/bingbot.json'), 'a list the feed lacks comes from its vendor');
+    assert.ok(fetch.calls.includes(claude), 'claude-user and claude-searchbot were missing from the feed');
+    assert.ok(r.fetched.includes('claudebot') && r.fetched.includes('bingbot'));
+    assert.deepEqual(r.failed, []);
+    assert.equal(v.check('157.55.39.10', UA.bingbot).verdict, 'verified');
+
+    // The feed down: every list from its vendor, and the feed's error is not reported as the list's.
+    const downFeed = stubFetch((url) => (url === FEED ? down() : null));
+    const v2 = createVerifier({ fetch: downFeed, now: clock(), store: memoryStore(), feedUrl: FEED, fallback: true, log: quiet });
+    const r2 = await v2.refresh();
+    assert.deepEqual(r2.failed, []);
+    assert.equal(downFeed.calls.length, 1 + new Set(SOURCES.map(s => s.url)).size);
+});

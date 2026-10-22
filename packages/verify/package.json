@@ -1,6 +1,6 @@
 {
   "name": "siteread",
-  "version": "0.3.0",
+  "version": "0.2.1",
   "description": "Is that crawler who it says it is? Checks an IP + User-Agent against the AI and search vendors' published IP lists. Zero dependencies.",
   "type": "module",
   "engines": {

@@ -11,7 +11,7 @@ Two long-running Node processes, both listening on `127.0.0.1` only, behind a TL
 | Process | Serves | Command | Port |
 |---|---|---|---|
 | `cloud` | `api.siteread.dev`: the crawler-list feed, the `share` endpoint, the benchmark JSON | `node cloud/bin/serve.js --port 8787 --data <data dir> --public-url https://siteread.dev` | 8787 |
-| `site` | `siteread.dev`: the public pages (Angular, server-rendered) | `node site/server/server.mjs` | 4000 |
+| `site` | `siteread.dev`: the public pages (Angular, server-rendered) | `node --max-old-space-size=96 site/server/server.mjs` | 4000 |
 
 - `cloud` has zero npm dependencies. It runs its two jobs on internal timers (feed every 6 h,
   aggregate hourly). Alternatively, start it with `--no-jobs` and run
@@ -21,14 +21,16 @@ Two long-running Node processes, both listening on `127.0.0.1` only, behind a TL
 
 ## Footprint
 
-| | cloud (measured) | site (estimate, re-measured once built) |
+| | cloud (measured) | site (measured 2026-10-22, Node 26, macOS arm64) |
 |---|---|---|
-| Memory (RSS) | 58 MB idle, 71 MB after a feed build, ~100 MB after a burst of 200 requests | 100–150 MB |
-| CPU | a feed build takes 1.3–3 ms (10.6 ms cold); a share is well under that | light; one render per `/benchmark` miss, cached 5 min |
-| Disk | under 5 MB a year (a share row is ~0.5 KB; the feed is 15.3 KB) | ~5–10 MB of built files |
+| Memory (RSS) | 58 MB idle, 71 MB after a feed build, ~100 MB after a burst of 200 requests | 85 MB idle; levels off at ~245 MB after 1,100 renders with Node's default heap, ~180 MB with `--max-old-space-size=96` (the command above) |
+| CPU | a feed build takes 1.3–3 ms (10.6 ms cold); a share is well under that | ~11 ms per `/benchmark` render; the other pages are prebuilt files; `/benchmark` is cacheable 5 min |
+| Disk | under 5 MB a year (a share row is ~0.5 KB; the feed is 15.3 KB) | ~2 MB of built files |
 | Traffic | the feed is 15.3 KB; even 10,000 fetches a day is ~4.6 GB a month before gzip | small |
 
-Suggested caps per process: `MemoryMax=256M`, a low `CPUQuota` (e.g. 25 %).
+Suggested caps: `cloud` `MemoryMax=256M`; `site` `MemoryMax=320M` with the heap flag above (V8 grows its
+heap lazily up to its default limit, so without the flag the process sits near 256 MB). A low `CPUQuota`
+(e.g. 25 %) for both. Linux with Node 24 may measure differently; re-check on the VM.
 
 ## Network
 
@@ -46,18 +48,24 @@ Suggested caps per process: `MemoryMax=256M`, a low `CPUQuota` (e.g. 25 %).
 siteread promises its users that the service never keeps the IP address of anyone who sends a share
 or fetches the feed. The application code never reads it. The host must not keep it either:
 
-1. **No access log with client IPs** for these three names. Caddy writes none unless a `log`
-   directive is added. nginx needs `access_log off;` in these server blocks.
-2. **No client IPs in error logs.** nginx's `error_log` lines carry `client: <ip>`. For these
-   server blocks, set `error_log` to a level or destination that does not keep them (`crit`, or
-   `/dev/null`).
-3. **Nothing else that persists client IPs** for these names: no WAF or fail2ban log, no
+1. **No access log with client IPs for `api.siteread.dev` or `www.siteread.dev`.** Caddy writes
+   none unless a `log` directive is added. nginx needs `access_log off;` in these server blocks.
+2. **The one exception: `siteread.dev`'s own access log** (the owner's decision, 2026-10-22), so
+   siteread can read its own site like any of its users' sites. Page requests only, in a folder
+   only root and the proxy can read, every line gone after 28 days; the privacy page says so. A
+   share or a feed fetch never goes to this name, so it cannot tie a share to an address.
+3. **No client IPs in error logs, for any of the three.** nginx's `error_log` lines carry
+   `client: <ip>`; set it to a level or destination that does not keep them (`crit`, or
+   `/dev/null`). Caddy logs every failed request (a 502 while an upstream restarts) under
+   `http.log.error` with the client's IP and user-agent, access log or not: exclude its `http`
+   loggers from the default log, as `deploy/Caddyfile` does. Learned on the first deploy.
+4. **Nothing else that persists client IPs** for these names: no WAF or fail2ban log, no
    analytics, no log shipping of these vhosts.
-4. **Allowed:** in-memory rate limiting (nginx `limit_req`, Caddy rate-limit), because it is never
+5. **Allowed:** in-memory rate limiting (nginx `limit_req`, Caddy rate-limit), because it is never
    written down.
-5. **How to check:** send a request from a known IP to each name, including one that is refused (a
-   `POST /v1/share` with a 20 KB body), then `grep -r <that ip> /var/log` must find nothing that
-   belongs to these names.
+6. **How to check:** send a request from a known IP to each name, including one that is refused (a
+   `POST /v1/share` with a 20 KB body) and one that fails upstream, then `grep -r <that ip> /var/log`
+   and the journal must find nothing outside `siteread.dev`'s own access log.
 
 ## Proxy limits
 
