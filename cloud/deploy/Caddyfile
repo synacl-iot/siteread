@@ -18,6 +18,18 @@
 	}
 }
 
+# Every siteread.dev response: no framing, no sniffing, no referrer sent to the sites it links to.
+(site-headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		Cross-Origin-Opener-Policy same-origin
+		-Server
+	}
+}
+
 siteread.dev {
 	# JSON, which `siteread digest` reads. Caddy rolls the file only by size, so the daily
 	# siteread-log-prune.timer (prune-log.sh) dates it and deletes every line past 28 days.
@@ -28,15 +40,7 @@ siteread.dev {
 		}
 	}
 	encode zstd gzip
-	# Every response: no framing, no sniffing, no referrer sent to the sites this one links to.
-	header {
-		Strict-Transport-Security "max-age=31536000"
-		X-Content-Type-Options nosniff
-		Referrer-Policy no-referrer
-		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-		Cross-Origin-Opener-Policy same-origin
-		-Server
-	}
+	import site-headers
 
 	# The site runs in the browser: these files are all there is, and no process sits behind them.
 	root * /srv/siteread/current/site/browser
@@ -67,7 +71,9 @@ siteread.dev {
 		file_server
 	}
 	# Anything else is the shell with its real status, where the app shows its not-found page.
+	# Error responses start without the headers set above, so they get them again.
 	handle_errors {
+		import site-headers
 		header Cache-Control "public, max-age=60"
 		rewrite * /index.html
 		file_server
