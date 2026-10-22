@@ -24,7 +24,7 @@ cap is spent, stop and say so.
   `dist/`; `install.sh` provisions); `https://siteread.dev` is live. DNS is at Namecheap, the owner's to edit. npm
   `siteread` 0.2.1 (this release, published by the owner 2026-10-22; the earlier 0.2.1 never reached npm) and a PyPI
   `siteread` 0.0.1 placeholder are the owner's publishes; the next npm release is 0.2.2, also the owner's to publish. The name `siteread` is final
-  (owner's pick, domain `siteread.dev` bought 2026-10-21); further names stay the owner's call. Repo stays private until the owner says.
+  (owner's pick, domain `siteread.dev` bought 2026-10-21); further names stay the owner's call. The owner made the repo public 2026-10-22.
 - The weekly cap in `CHARTER.md` starts after the initial release (the whole solution live end to end, cloud
   included); until then build. Once it applies, it is
   real: log the week's spend in its table, stop when spent, and say so.

@@ -42,4 +42,17 @@ describe('the generated docs', () => {
       for (const [, href] of d.html.matchAll(/href="([^"]*)"/g)) expect(href).toMatch(/^(https:\/\/|docs#)/);
     }
   });
+
+  it('turns a repo-relative link into this page’s anchor, or the file on GitHub', async () => {
+    const { render } = await import('../../scripts/docs.mjs' as string);
+    const html = render('[the skill](../plugins/siteread/README.md), [the brief](HOSTING.md), [x](#install), [out](../../../etc)', 'cloud', 'cloud/README.md');
+    expect(html).toContain('href="docs#seo-read"');
+    expect(html).toContain('href="https://github.com/synacl-iot/siteread/blob/main/cloud/HOSTING.md"');
+    expect(html).toContain('href="docs#install"');
+    expect(html).toContain('out');
+    expect(html).not.toContain('etc"');   // a path out of the repo stays plain text
+    for (const d of DOCS) {
+      expect(d.html).not.toContain('href=""');
+    }
+  });
 });
