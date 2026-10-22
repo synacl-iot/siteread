@@ -1,0 +1,18 @@
+{
+  "name": "siteread",
+  "version": "0.2.1",
+  "description": "Weekly read of your site: who read it, whether it went well, what to write next. Turns a Search Console export and your access log into a dated memo, with every crawler checked against its vendor's IP list.",
+  "author": {
+    "name": "Synacl Labs"
+  },
+  "homepage": "https://siteread.dev",
+  "repository": "https://github.com/synacl-iot/siteread",
+  "license": "MIT",
+  "keywords": [
+    "seo",
+    "search-console",
+    "access-log",
+    "crawlers",
+    "ai-agents"
+  ]
+}

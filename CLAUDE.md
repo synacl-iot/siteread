@@ -9,13 +9,13 @@ cap is spent, stop and say so.
 | Dir | What |
 |---|---|
 | `packages/verify/` | npm `siteread`: crawler verification (vendor IP lists + UA table + scanner signatures), CLI |
-| `skill/` | Claude Code skill `seo-read`: GSC export + log + beacons → weekly memo (phase 2) |
+| `plugins/siteread/` | Claude Code plugin `siteread` with the skill `seo-read`: GSC export + log → weekly memo (phase 2); the repo root's `.claude-plugin/marketplace.json` makes this repo its marketplace. Bump `plugin.json`'s `version` whenever the skill changes: installs update only on a new version |
 | `cloud/` | list feed + `share` endpoint + aggregate job (phase 3) |
 | `site/` | siteread.dev in Angular 22 with SSR: home, benchmark with `n`, docs from the READMEs, privacy, private operator page (phase 3) |
 
 ## Starting a session here
 
-- State: phases 1 (`packages/verify`) and 2 (`siteread digest` + `skill/seo-read`) done 2026-10-21. Phase 3's
+- State: phases 1 (`packages/verify`) and 2 (`siteread digest` + the `seo-read` skill, now in `plugins/siteread/`) done 2026-10-21. Phase 3's
   `cloud/` (feed, `share` endpoint, aggregate job, operator status) and `siteread share` (0.2.1) built in PR #2, not
   95 tests (`npm test` in `packages/verify` and in `cloud`). `site/` built 2026-10-22 in the Ledger look
   (owner's pick) on `phase3-site`, PR #3, stacked on PR #2: Angular 22 with SSR, its deps in `site/`
