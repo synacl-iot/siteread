@@ -49,7 +49,7 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 | 2026-W43 | agent sessions for phase 2 and release prep + owner's publishes (pre-release, cap not in force) | **phase 2 done** (PR #1): `siteread digest` + `seo-read` skill, 60 tests; npm `siteread` 0.2.0 → 0.2.1, PyPI `siteread` 0.0.1 placeholder |
 | 2026-W43 | one agent session for phase 3's cloud part (pre-release, cap not in force) | **`cloud/` built, not deployed** (PR #2): feed, `share` endpoint, aggregate job; `siteread share` in the CLI (0.3.0, unpublished); 87 tests; feed and share round-trip against a local server. `site/` next |
 | 2026-W43 | one agent session (pre-release, cap not in force) | hosting brief `cloud/HOSTING.md` (Vultr: existing VM or a new one); operator status, live named row, quartiles from 10 anonymous sites (PR #2); 95 tests; siteread.dev page mockup for the owner's sign-off. `site/` (Angular 22, SSR) after sign-off |
-| 2026-W43 | one agent session (pre-release, cap not in force) | site look decided (A · Ledger, from six directions); **`site/` built, not deployed** (PR #3): Angular 22 SSR, home, benchmark (early, populated, unavailable), docs rendered from the READMEs, privacy, operator; 42 tests; shipped-bundle and end-to-end checks against a local `cloud`; SSR memory measured into HOSTING.md |
+| 2026-W43 | one agent session (pre-release, cap not in force) | site look decided (A · Ledger, from six directions); **`site/` built, not deployed** (PR #3): Angular 22 SSR, home, benchmark (early, populated, unavailable), docs rendered from the READMEs, privacy, operator; 42 tests; shipped-bundle and end-to-end checks against a local `cloud`; SSR memory measured into HOSTING.md; deployed to a new Vultr VM with `cloud/deploy/` (siteread.dev live; `api`/`www` wait on DNS); found and closed Caddy logging client IPs on failed requests |
 
 ## Owner decisions pending
 
@@ -61,15 +61,13 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 - ~~License~~ decided 2026-10-21: MIT.
 - ~~Claim npm `siteread` and PyPI `siteread`~~ done 2026-10-21 by the owner: npm 0.2.0, PyPI 0.0.1 (a placeholder
   that points to npm until the Python twin exists).
-- Phase 3 hosting (feed, `share`, aggregate job, public page) and `siteread.dev` DNS: owner picks from checked candidates
-  (PR #2's write-up). The CLI's default share address, `https://api.siteread.dev/v1/share` (`packages/verify/src/share.js`),
-  follows the DNS pick.
+- ~~Phase 3 hosting and `siteread.dev` DNS~~ decided 2026-10-22 by the owner: a new Vultr VM of its own (Frankfurt,
+  1 vCPU, 1 GB, Debian 13), set up and deployed by `cloud/deploy/` the same day; DNS stays at Namecheap. The page is
+  `siteread.dev`, the service `api.siteread.dev`, the CLI's default share address (`packages/verify/src/share.js`).
 - `share` defaults, set in PR #2 and the owner's to change: at most 100 new sites a day, each site's latest share within
   4 weeks compared, a random per-site id kept in `.siteread/share-id`. Decided 2026-10-22 by the owner: the benchmark
   publishes the 25th/50th/75th percentiles only, from 10 anonymous sites per metric (five percentiles from 5 sites gave
   every value back); synacl.com is the named row, live from its own share.
-- Hosting: the owner wants Vultr (one bill with Synacl); `cloud/HOSTING.md` is the brief for choosing between an
-  existing VM and a new small one.
 - ~~Site look~~ decided 2026-10-22 by the owner: **A · Ledger** (cool slate, teal and orange, expanded grotesk, numbers
   in mono), from six directions on a private mockup canvas (https://claude.ai/artifact/TLSBMYHxqw5NKxpYWnVXaK). `site/`
   is Angular 22 with SSR (owner's pick), built on the owner's machine with only `dist/` shipped. Still open: whether the
