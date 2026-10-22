@@ -20,7 +20,7 @@ export const SECTIONS = [
     { id: 'install', title: 'Install', file: 'packages/verify/README.md', heading: 'Install' },
     { id: 'cli', title: 'CLI', file: 'packages/verify/README.md', heading: 'CLI' },
     { id: 'digest', title: 'Digest', file: 'packages/verify/README.md', heading: 'Digest (for the `seo-read` skill)' },
-    { id: 'seo-read', title: 'The seo-read skill', file: 'skill/README.md', whole: true },
+    { id: 'seo-read', title: 'The seo-read skill', file: 'plugins/siteread/README.md', whole: true },
     { id: 'share', title: 'Share', file: 'packages/verify/README.md', heading: 'Share (opt-in)' },
     { id: 'library', title: 'Library', file: 'packages/verify/README.md', heading: 'Library' },
     { id: 'vendor-lists', title: 'Vendor lists', file: 'packages/verify/README.md', heading: 'Vendor lists' },
@@ -30,7 +30,7 @@ export const SECTIONS = [
 
 // Relative link targets, as written in the READMEs, that this page holds. Anchors carry the page
 // path: the site's <base href="/"> would send a bare "#id" to the home page.
-const LINKS = { '../../skill/README.md': 'docs#seo-read' };
+const LINKS = {};
 
 /** The body under `## heading` up to the next `##`, skipping fenced code. Throws when missing. */
 export function section(markdown, heading) {

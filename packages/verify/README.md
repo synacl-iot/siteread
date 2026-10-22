@@ -81,8 +81,9 @@ so `--host` keeps them and says so. For nginx JSON, the common field names are r
 `http_user_agent` or `user_agent`, `http_referer` or `referer`, `host` or `http_host`), with
 `escape=json` or nginx's default escaping.
 
-`npx siteread --help` lists every option. The `seo-read` skill for Claude Code, in this project's
-`skill/` folder, turns the JSON into a weekly memo.
+`npx siteread --help` lists every option. The `seo-read` skill, in siteread's Claude Code plugin
+(`/plugin install siteread@siteread` after `/plugin marketplace add synacl-iot/siteread`), turns the
+JSON into a weekly memo.
 
 ## Share (opt-in)
 

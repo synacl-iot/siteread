@@ -1,0 +1,18 @@
+{
+  "name": "siteread",
+  "owner": { "name": "Synacl Labs" },
+  "metadata": {
+    "description": "siteread's Claude Code plugin: the seo-read skill, a weekly read of your own site."
+  },
+  "plugins": [
+    {
+      "name": "siteread",
+      "source": "./plugins/siteread",
+      "description": "Weekly read of your site: who read it, whether it went well, what to write next.",
+      "author": { "name": "Synacl Labs" },
+      "homepage": "https://siteread.dev",
+      "license": "MIT",
+      "category": "productivity"
+    }
+  ]
+}
