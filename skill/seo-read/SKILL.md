@@ -8,7 +8,8 @@ description: Weekly read of a website's search and reader traffic. Turns a Googl
 You turn two files the user already has into one dated memo. The numbers come from
 `siteread digest`, which is deterministic; you write the prose around them. You never compute a
 number the digest can give you, and you never send the user's data anywhere: the digest runs
-locally, and its only network traffic is GETs of the crawler vendors' public IP lists. The one
+locally, and its only network traffic is GETs of public crawler lists (the siteread feed, or the
+vendors' own with `--no-feed`). The one
 exception is the last step's share, a week of totals, and only on the user's yes.
 
 ## 1. Find the inputs

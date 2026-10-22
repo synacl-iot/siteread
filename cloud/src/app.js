@@ -20,11 +20,13 @@
 // the number of installs using it. No User-Agent string is kept, only the kind and a version that
 // parses as one, at most MAX_VERSIONS a day, so a flood of made-up agents cannot grow the counts.
 //
-// ABUSE. Anyone can post. A site re-sharing a week replaces its row; a cap on new sites per day
-// bounds how fast a flood of made-up ids can move the benchmark; bounds on every metric refuse
-// garbage. It is a benchmark of what people chose to send, and the page says so.
+// ABUSE. Anyone can post. A site re-sharing a week replaces its row; a new site id must carry a
+// proof of work whose price rises with the day's new sites (share.js, PROOF OF WORK), which bounds
+// how fast a flood of made-up ids can move the benchmark without a cap one sender could use up;
+// bounds on every metric refuse garbage. It is a benchmark of what people chose to send, and the
+// page says so.
 
-import { validateShare, isoWeek, weekStart, addWeeks } from '../../packages/verify/src/share.js';
+import { validateShare, isoWeek, weekStart, addWeeks, proofBitsFor, leadingZeroBits, PROOF_PREFIX, PROOF_BASE_BITS } from '../../packages/verify/src/share.js';
 import { VERSION } from '../../packages/verify/src/version.js';
 import { buildFeed, FEED_KEY } from './feed.js';
 import { standing, aggregate, MIN_SITES } from './benchmark.js';
@@ -33,7 +35,6 @@ export const BENCHMARK_KEY = 'benchmark.json';
 export const LAST_RUN_KEY = 'feed/last-run.json';
 export const MAX_SHARE_BYTES = 8 * 1024;
 export const MAX_WEEKS_BACK = 8;
-export const MAX_NEW_SITES_PER_DAY = 100;
 export const STATS_DAYS = 30;
 export const MAX_VERSIONS = 20;
 
@@ -106,6 +107,14 @@ async function readCapped(request, max) {
     return new TextDecoder().decode(buf);
 }
 
+// Does `nonce` prove work for this id: SHA-256(prefix, id, nonce) with `bits` leading zero bits?
+// Web Crypto, like sameSecret, so the handler runs wherever fetch does.
+async function proofHolds(id, nonce, bits) {
+    if (typeof nonce !== 'string') return false;
+    const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${PROOF_PREFIX}${id}:${nonce}`));
+    return leadingZeroBits(new Uint8Array(d)) >= bits;
+}
+
 // Two secrets compared in constant time: SHA-256 makes the lengths equal, the XOR loop never
 // stops early. Web Crypto, so it runs wherever the handler does.
 async function sameSecret(a, b) {
@@ -130,7 +139,7 @@ async function sameSecret(a, b) {
 export function createApp({
     store, now = Date.now, fetch: fetchImpl = globalThis.fetch, log = console,
     publicUrl = 'https://siteread.dev', minSites = MIN_SITES,
-    maxNewSitesPerDay = MAX_NEW_SITES_PER_DAY, maxWeeksBack = MAX_WEEKS_BACK,
+    proofBaseBits = PROOF_BASE_BITS, maxWeeksBack = MAX_WEEKS_BACK,
     named = new Map(), operatorToken = null, operatorOrigin = 'https://siteread.dev',
 } = {}) {
     // day → { taken, refused: { code → n }, hits: { route → { client → n } }, versions: { v → n } },
@@ -196,8 +205,12 @@ export function createApp({
 
         const today = isoDay(t);
         if ((await store.get(`sites/${s.id}`)) == null) {
-            if ((await store.list(`new/${today}/`)).length >= maxNewSitesPerDay) {
-                return refused('new-site-cap', 429, 'too many new sites today; try again tomorrow', { 'retry-after': '3600' });
+            // A new id pays for itself, at today's price; the answer names the price so the CLI can
+            // make a stronger proof and come back.
+            const need = proofBitsFor((await store.list(`new/${today}/`)).length, proofBaseBits);
+            if (need > 0 && !(await proofHolds(s.id, s.proof, need))) {
+                count('proof');
+                return json(400, { ok: false, error: `a new site needs a proof of work of ${need} bits today`, need });
             }
             await store.put(`new/${today}/${s.id}`, '1');
             await store.put(`sites/${s.id}`, JSON.stringify({ firstSharedOn: today }));
@@ -265,7 +278,8 @@ export function createApp({
                 named: (bench.named ?? []).map(n => ({ label: n.label, week: n.week })),
             } : null,
             newSites: days.map(day => ({ day, sites: newPerDay.get(day) })),
-            newSitesToday: { sites: newPerDay.get(today), max: maxNewSitesPerDay },
+            // What a new site's proof costs right now, in bits: it rises with today's new sites.
+            newSitesToday: { sites: newPerDay.get(today), proofBits: proofBitsFor((await store.list(`new/${today}/`)).length, proofBaseBits) },
             requests: days.map(day => ({ day, ...(stats.get(day) ?? emptyCounts()) })),
         }, headers);
     }

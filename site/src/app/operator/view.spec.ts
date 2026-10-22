@@ -21,7 +21,7 @@ export function status(over: Partial<OperatorStatus> = {}): OperatorStatus {
       named: [{ label: 'synacl.com', week: '2026-W42' }],
     },
     newSites: days.map((day, i) => ({ day, sites: i % 3 })),
-    newSitesToday: { sites: 1, max: 100 },
+    newSitesToday: { sites: 1, proofBits: 22 },
     requests: days.map(day => ({
       day, taken: 2,
       refused: (day === '2026-10-22' ? { 'unknown-field': 1, 'old-week': 1, 'operator-denied': 2 } : {}) as Record<string, number>,
@@ -39,7 +39,7 @@ describe('refusalCells', () => {
     const cells = refusalCells({ 'unknown-metric': 2, 'unknown-field': 1, 'not-json': 1, 'future-week': 3, 'brand-new': 5 });
     const by = Object.fromEntries([...REFUSAL_COLUMNS.map(c => c.title), 'Other'].map((t, i) => [t, cells[i]]));
     expect(by).toEqual({
-      'Unknown field': 3, 'Bad value': 1, Week: 3, 'Too large / type': 0, 'New-site cap': 0,
+      'Unknown field': 3, 'Bad value': 1, Week: 3, 'Too large / type': 0, 'No proof': 0,
       'Token denied': 0, 'Server error': 0, Other: 5,
     });
   });
@@ -59,6 +59,7 @@ describe('operatorView', () => {
     expect(v.days.map(d => d.day)).toEqual(['2026-10-22', '2026-10-21', '2026-10-20', '2026-10-19', '2026-10-18', '2026-10-17', '2026-10-16']);
     expect(v.days[0].cells.length).toBe(v.columns.length);
     expect(v.named).toBe('synacl.com: 2026-W42');
+    expect(v.newCard).toEqual({ value: '1', note: "a new site's proof costs 22 bits now; one more per 50 new sites, back to base at 00:00 UTC" });
   });
 
   it('copes with a service that has built nothing yet', () => {

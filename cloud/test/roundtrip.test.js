@@ -13,7 +13,7 @@ import { memoryStore } from '../src/store.js';
 import { serve } from '../src/node.js';
 import { digest, parseGoal } from '../../packages/verify/src/index.js';
 import { createVerifier, memoryStore as listStore } from '../../packages/verify/src/verifier.js';
-import { share, post, fixtureLists, NOW, silent } from './helpers.js';
+import { share, post, fixtureLists, NOW, silent, proofFor } from './helpers.js';
 
 const BIN = fileURLToPath(new URL('../../packages/verify/bin/siteread.js', import.meta.url));
 const SITE = fileURLToPath(new URL('../../packages/verify/test/fixtures/site/', import.meta.url));
@@ -29,13 +29,14 @@ async function fixtureDigest() {
 
 function cli(args, cwd) {
     return new Promise((resolve) => {
-        execFile(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8' }, (err, out, errOut) => resolve({ code: err ? err.code : 0, out, err: errOut }));
+        execFile(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, SITEREAD_PROOF_BITS: '8' } },
+            (err, out, errOut) => resolve({ code: err ? err.code : 0, out, err: errOut }));
     });
 }
 
 test('share round trip: CLI → HTTP → stored → percentile back; the site never reaches the service', async (t) => {
     const store = memoryStore();
-    const app = createApp({ store, now: () => NOW, log: silent, fetch: null, publicUrl: 'http://127.0.0.1' });
+    const app = createApp({ store, now: () => NOW, log: silent, fetch: null, publicUrl: 'http://127.0.0.1', proofBaseBits: 8 });
     const server = await serve(app, { port: 0 });
     t.after(() => server.close());
     const endpoint = `http://127.0.0.1:${server.address().port}/v1/share`;
@@ -57,6 +58,9 @@ test('share round trip: CLI → HTTP → stored → percentile back; the site ne
     const printed = first.out.slice(0, first.out.indexOf('\n}\n') + 2);
     assert.equal(printed, dry.out.trimEnd());
     const sent = JSON.parse(printed);
+    // A new site's first share carries the proof of work the CLI made once and kept beside the id.
+    assert.match(sent.proof, /^\d+$/);
+    assert.match(readFileSync(join(dir, '.siteread', 'share-proof'), 'utf8'), new RegExp(`^${sent.proof} \\d+ ${sent.id}\n$`));
     const key = `shares/2026-W42/${sent.id}.json`;
     assert.deepEqual(JSON.parse(await store.get(key)), { ...sent, receivedOn: '2026-10-21' });
     assert.match(first.out, /sent 2026-W42\. The benchmark has not been built yet/);
@@ -66,7 +70,7 @@ test('share round trip: CLI → HTTP → stored → percentile back; the site ne
     // replaces its row and is told only what the public page shows: six sites, under the 10 a
     // spread needs, so a count per number and no standing.
     for (const [n, people, pos] of [[1, 1, 30], [2, 2, 25], [3, 9, 12], [4, 40, 8], [5, 4, 40]]) {
-        assert.equal((await post(app, share(n, n % 2 ? '2026-W42' : '2026-W41', { people, gscPosition: pos }))).status, 200);
+        assert.equal((await post(app, { ...share(n, n % 2 ? '2026-W42' : '2026-W41', { people, gscPosition: pos }), proof: proofFor(n, 8) })).status, 200);
     }
     await app.runAggregate();
     const again = await cli(['share', '--yes', '--endpoint', endpoint], dir);

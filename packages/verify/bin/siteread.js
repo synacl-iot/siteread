@@ -8,15 +8,17 @@
 //   siteread --help
 //
 // Lists are cached in one file (os.tmpdir()/siteread/lists.json, or $SITEREAD_CACHE) and
-// refetched only when older than 24 h. The only network traffic is GETs of the vendors' lists,
-// and `share`, which prints the exact bytes it would send and sends only on a yes.
+// refetched only when older than 24 h, from the siteread feed (one GET of public data; the service
+// keeps no address) or, with --no-feed and whenever the feed fails, from each vendor. The only
+// other traffic is `share`, which prints the exact bytes it would send and sends only on a yes.
 
 import os from 'node:os';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { createVerifier, fileStore, detectAgent, detectCrawler, digest, parseGoal, sharePayload, SHARE_METRICS, SHARE_URL, VERSION } from '../src/index.js';
+import { createVerifier, fileStore, detectAgent, detectCrawler, digest, parseGoal, sharePayload, SHARE_METRICS, SHARE_URL, FEED_URL, VERSION } from '../src/index.js';
+import { leadingZeroBits, PROOF_BASE_BITS, PROOF_PREFIX } from '../src/share.js';
 
 const EXIT = { verified: 0, spoofed: 2, unknown: 3, 'n/a': 3, usage: 1 };
 const cacheFile = process.env.SITEREAD_CACHE || path.join(os.tmpdir(), 'siteread', 'lists.json');
@@ -36,6 +38,8 @@ Usage:
 Options:
   --no-cache   refetch every list now (a copy younger than 24 h is otherwise reused;
                a failed fetch still falls back to the cached copy)
+  --no-feed    fetch each list from its vendor instead of the siteread feed
+               (also SITEREAD_FEED_URL=off; SITEREAD_FEED_URL=<url> reads another feed)
   --json       print the full result as JSON
 
 Digest options (at least one of --gsc / --log):
@@ -74,7 +78,8 @@ Exit codes (check):
   1            usage error, or not an IP address
 
 Cache: ${cacheFile}  (override with SITEREAD_CACHE)
-Nothing leaves this machine except GETs of the vendors' public IP lists, and a share you approve.`;
+Nothing leaves this machine except GETs of public crawler lists (the siteread feed, or with
+--no-feed the vendors' own), and a share you approve.`;
 
 // Options that take a value (digest only). Each keeps every value given, in order.
 const VALUE_OPTS = new Set(['--gsc', '--log', '--out', '--site', '--sitemap', '--from', '--to', '--split', '--goal',
@@ -154,10 +159,18 @@ function describe(ip, ua, r, list) {
     }
 }
 
+// The feed by default, as the charter has it once the feed exists: one GET instead of nine, of
+// public data, from a service that keeps no address. What it cannot give comes from the vendors.
+function newVerifier(flags) {
+    const env = process.env.SITEREAD_FEED_URL;
+    const feedUrl = flags.has('--no-feed') || env === 'off' ? null : (env || FEED_URL);
+    return createVerifier({ store: fileStore(cacheFile), log: {}, feedUrl, fallback: true });
+}
+
 async function cmdCheck({ flags, pos }) {
     if (pos.length !== 3) return usage('check takes exactly two arguments: <ip> "<user-agent>" (quote the user-agent)');
     const [, ip, ua] = pos;
-    const verifier = createVerifier({ store: fileStore(cacheFile), log: {} });
+    const verifier = newVerifier(flags);
     let r = verifier.check(ip, ua);
     if (r.reason === 'invalid-ip') return usage(`"${ip}" is not an IP address`);
     // Only touch the network when the claimed agent has a list to check against.
@@ -177,7 +190,7 @@ async function cmdCheck({ flags, pos }) {
 
 async function cmdLists({ flags, pos }) {
     if (pos.length !== 1) return usage('lists takes no arguments');
-    const verifier = createVerifier({ store: fileStore(cacheFile), log: {} });
+    const verifier = newVerifier(flags);
     const result = await verifier.refresh({ force: flags.has('--no-cache') });
     reportFailures(result, verifier);
     const rows = verifier.lists();
@@ -220,7 +233,7 @@ async function cmdDigest({ flags, opts, pos }) {
 
     let verifier = null;
     if (logs.length) {
-        verifier = createVerifier({ store: fileStore(cacheFile), log: {} });
+        verifier = newVerifier(flags);
         if (flags.has('--offline')) {
             await verifier.load();
         } else {
@@ -288,6 +301,32 @@ function shareId(file) {
     return id;
 }
 
+// A new site's proof of work (src/share.js, PROOF OF WORK), kept next to the id as "nonce bits id"
+// so it is made once. A file for another id, or one that does not hold up, is made again.
+function readProof(file, id) {
+    let parts;
+    try { parts = readFileSync(file, 'utf8').trim().split(/\s+/); } catch { return null; }
+    const [nonce, bits, forId] = parts;
+    if (forId !== id || !/^\d{1,20}$/.test(nonce ?? '')) return null;
+    const got = leadingZeroBits(createHash('sha256').update(`${PROOF_PREFIX}${id}:${nonce}`).digest());
+    return got >= Number(bits) ? { nonce, bits: got } : null;
+}
+
+function makeProof(file, id, bits) {
+    process.stderr.write(`siteread: making this site's proof of work (${bits} bits; seconds on a laptop, once, so made-up sites cost real time)\n`);
+    const t0 = Date.now();
+    for (let n = 0; ; n++) {
+        const nonce = String(n);
+        const got = leadingZeroBits(createHash('sha256').update(`${PROOF_PREFIX}${id}:${nonce}`).digest());
+        if (got >= bits) {
+            mkdirSync(path.dirname(file), { recursive: true });
+            writeFileSync(file, `${nonce} ${got} ${id}\n`, { mode: 0o600 });
+            process.stderr.write(`siteread: made it in ${((Date.now() - t0) / 1000).toFixed(1)} s, kept in ${file}\n`);
+            return { nonce, bits: got };
+        }
+    }
+}
+
 // Plain http only to this machine: a share crosses the internet over TLS or not at all.
 function endpointOk(raw) {
     let u;
@@ -311,7 +350,15 @@ async function cmdShare({ flags, opts, pos }) {
     if (!endpointOk(endpoint)) return usage(`--endpoint must be an https:// URL (plain http only to localhost): ${endpoint}`);
 
     let built;
-    try { built = sharePayload(d, { id: shareId(one('--id-file') ?? path.join('.siteread', 'share-id')) }); } catch (err) {
+    const idFile = one('--id-file') ?? path.join('.siteread', 'share-id');
+    const proofFile = path.join(path.dirname(idFile), 'share-proof');
+    try {
+        const id = shareId(idFile);
+        // A known site never needs its proof again; a new one needs it at today's price, which the
+        // service names when it asks for more. SITEREAD_PROOF_BITS only sets where the first try starts.
+        const proof = readProof(proofFile, id) ?? makeProof(proofFile, id, Number(process.env.SITEREAD_PROOF_BITS) || PROOF_BASE_BITS);
+        built = sharePayload(d, { id, proof: proof.nonce });
+    } catch (err) {
         if (err instanceof UsageError) throw err;
         process.stderr.write(`siteread: share: ${err.message}\n`);
         return 1;
@@ -343,6 +390,13 @@ async function cmdShare({ flags, opts, pos }) {
     }
     if (!res.ok || r?.ok !== true) {
         process.stderr.write(`siteread: ${endpoint} did not take it: HTTP ${res.status}${r?.error ? `: ${clean(r.error)}` : ''}\n`);
+        // A busy day for new sites: make the stronger proof now, and let the user send again (the
+        // payload changes, so it is printed again before anything goes out).
+        const need = Number(r?.need);
+        if (Number.isInteger(need) && need > 0 && need <= 40) {
+            makeProof(proofFile, built.payload.id, need);
+            process.stderr.write('siteread: run share again to send it with the new proof\n');
+        }
         return 1;
     }
     // Where each number falls among the quartiles the benchmark publishes, and only where it
@@ -374,7 +428,7 @@ async function main(argv) {
     const { flags, pos } = args;
     if (flags.has('--help') || flags.has('-h') || pos[0] === 'help') { process.stdout.write(`${HELP}\n`); return 0; }
     if (flags.has('--version') || flags.has('-v')) { process.stdout.write(`${VERSION}\n`); return 0; }
-    const known = new Set(['--no-cache', '--json', '--offline', '--dry-run', '--yes']);
+    const known = new Set(['--no-cache', '--no-feed', '--json', '--offline', '--dry-run', '--yes']);
     const bad = [...flags].find(f => !known.has(f));
     if (bad) return usage(`unknown option ${bad}`);
     if (pos[0] === 'check') return cmdCheck(args);

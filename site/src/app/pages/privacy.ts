@@ -19,6 +19,7 @@ export class Privacy {
       aiAnswerFetches: 0, aiSearchFetches: 0, aiTrainingFetches: 2, searchEngineFetches: 8, aiSpoofedPct: 25,
       gscImpressions: 238, gscClicks: 3, gscCtrPct: 1.3, gscPosition: 17.9,
     },
+    proof: '2746561',
   }, null, 2);
 
   constructor() {

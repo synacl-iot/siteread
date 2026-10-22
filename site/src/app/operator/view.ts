@@ -13,7 +13,8 @@ export const REFUSAL_COLUMNS: readonly { title: string; codes: readonly string[]
   { title: 'Bad value', codes: ['body', 'schema', 'id', 'version', 'metric-value', 'not-json'] },
   { title: 'Week', codes: ['week', 'future-week', 'old-week'] },
   { title: 'Too large / type', codes: ['too-large', 'content-type'] },
-  { title: 'New-site cap', codes: ['new-site-cap'] },
+  // 'new-site-cap' is the refusal the proof of work replaced; days counted before still show here.
+  { title: 'No proof', codes: ['proof', 'new-site-cap'] },
   { title: 'Token denied', codes: ['operator-denied'] },
   { title: 'Server error', codes: ['internal'] },
 ];
@@ -41,7 +42,7 @@ export function usageCells(hits: Hits = {}): number[] {
 export interface OperatorView {
   feedCard: { value: string; note: string; warn: boolean };
   benchCard: { value: string; note: string };
-  newCard: { value: string; max: string };
+  newCard: { value: string; note: string };
   refusedCard: { value: string; note: string };
   feedTodayCard: { value: string; note: string };
   usage: { day: string; cells: number[] }[];
@@ -91,7 +92,10 @@ export function operatorView(s: OperatorStatus): OperatorView {
     benchCard: b
       ? { value: `${b.sites} ${b.sites === 1 ? 'site' : 'sites'}`, note: `built ${utcMinute(b.generatedAt)}${b.window ? ` · ${b.window.from} to ${b.window.to}` : ''}` }
       : { value: 'not built', note: 'the aggregate job has not run' },
-    newCard: { value: String(s.newSitesToday.sites), max: `of ${s.newSitesToday.max} allowed` },
+    newCard: {
+      value: String(s.newSitesToday.sites),
+      note: `a new site's proof costs ${s.newSitesToday.proofBits} bits now; one more per 50 new sites, back to base at 00:00 UTC`,
+    },
     refusedCard: { value: String(refusedToday), note: todayCodes.length ? todayCodes.join(', ') : 'none today' },
     feedTodayCard: (() => {
       const f = today?.hits?.['feed'] ?? {};

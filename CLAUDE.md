@@ -43,7 +43,9 @@ cap is spent, stop and say so.
 - Never send hostnames, URLs or visitor IPs anywhere. `share` prints the exact payload before sending.
 - On the VM, only `siteread.dev` keeps an access log (28 days, the owner's call); `api.siteread.dev` and `www` never
   log, and no error log may carry a client address (Caddy's `http` loggers stay excluded). `cloud/HOSTING.md` has why.
-- Vendor lists are fetched from the vendors by default; the feed is an opt-in override until it exists.
+- The feed exists (api.siteread.dev/v1/lists.json), so the CLI reads it by default as the charter says (opt-out:
+  `--no-feed`), falling back to the vendors for anything it cannot give. The library defaults to the vendors, which
+  cloud's feed job relies on.
 - Keep the WHY comments: they are the product knowledge (the 444 rule, the ClaudeBot
   README-link incident, Claude-User from claude-code being the user's own IP, Google-Extended never being a UA).
 - No Synacl branding in this repo. Synacl appears only as the first honest data row and in the post's byline.

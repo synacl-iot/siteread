@@ -38,7 +38,8 @@ export function memoryStore(initial = null) {
  * @param {Array<{agent: string, url: string}>} [opts.sources]
  * @param {() => number} [opts.now]
  * @param {{warn?: Function, error?: Function}} [opts.log]
- * @param {string|null} [opts.feedUrl]  one merged document instead of the vendor URLs (opt-in)
+ * @param {string|null} [opts.feedUrl]  one merged document instead of the vendor URLs
+ * @param {boolean} [opts.fallback]     with feedUrl: fetch from the vendors what the feed could not give
  * @param {(ip: string) => boolean} [opts.isKnownScannerIp]  the 444 rule, for agents with no list
  */
 export function createVerifier({
@@ -48,6 +49,7 @@ export function createVerifier({
     now = Date.now,
     log = console,
     feedUrl = null,
+    fallback = false,
     isKnownScannerIp = null,
 } = {}) {
     // One entry per agent (the first wins), in the order given.
@@ -140,6 +142,14 @@ export function createVerifier({
                     for (const { agent } of due) fail(out, agent, new Error('no fetch available'), agent);
                 } else if (feedUrl) {
                     await fetchFromFeed(due, t, doc, out);
+                    // The feed is a shortcut to the vendors, never the only way to them: what it
+                    // could not give (down, stale, a list missing) comes from the vendor itself.
+                    const missed = fallback ? due.filter(s => out.failed.includes(s.agent)) : [];
+                    if (missed.length) {
+                        for (const { agent } of missed) delete out.errors[agent];
+                        out.failed = out.failed.filter(a => !missed.some(s => s.agent === a));
+                        await fetchFromVendors(missed, t, doc, out);
+                    }
                 } else {
                     await fetchFromVendors(due, t, doc, out);
                 }

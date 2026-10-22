@@ -74,8 +74,10 @@ checks it with the same module's `validateShare`:
   number out of bounds, a week that has not started or is more than 8 weeks ago, a body over 8 KiB,
   anything but `application/json`. A client bug that would leak a hostname fails loudly.
 - **One row per site per week:** the id is random and kept by the site (`.siteread/share-id`); the
-  same id and week again replaces the row. At most 100 new ids a day are taken (`429` after), which
-  bounds how fast made-up sites can move the benchmark.
+  same id and week again replaces the row. A new id must carry a proof of work (`proof`, see
+  `PROOF OF WORK` in `share.js`): 22 zero bits on a quiet day, one more for every 50 new sites that
+  day (UTC). That bounds how fast made-up sites can move the benchmark without a cap one sender
+  could use up, and without reading an address. A refusal names the bits (`need`).
 - **Stored:** the validated share plus the day it arrived (`receivedOn`, not a time).
 - **Counted:** shares taken and refused per day, by a fixed refusal code (`SHARE_REFUSALS`), never by
   message, since a message can echo a field name the sender chose.

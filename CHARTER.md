@@ -21,8 +21,8 @@ IoT customers. Different audience, different brand, different domain.
 3. **Time-capped.** A fixed weekly budget (owner sets the number; default below). When it is spent
    the work stops and says so. The Monday read stays about Synacl.
 4. **Free first, data by reciprocity.** Local tools send nothing. The only network paths are the
-   merged crawler-list feed (opt-out) and `share` (opt-in, prints what it sends, returns a
-   percentile). Never hostnames, URLs or visitor IPs. Aggregates only.
+   merged crawler-list feed (opt-out) and `share` (opt-in, prints what it sends, returns where each
+   number stands among the published quartiles). Never hostnames, URLs or visitor IPs. Aggregates only.
 5. **Paid is deferred.** Revisit after a quarter, and only on repeated "how does my site compare"
    demand. Download counts and stars are not demand.
 
@@ -64,7 +64,8 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 - ~~Phase 3 hosting and `siteread.dev` DNS~~ decided 2026-10-22 by the owner: a new Vultr VM of its own (Frankfurt,
   1 vCPU, 1 GB, Debian 13), set up and deployed by `cloud/deploy/` the same day; DNS stays at Namecheap. The page is
   `siteread.dev`, the service `api.siteread.dev`, the CLI's default share address (`packages/verify/src/share.js`).
-- `share` defaults, set in PR #2 and the owner's to change: at most 100 new sites a day, each site's latest share within
+- `share` defaults, set in PR #2 and the owner's to change: a new site pays a proof of work whose price rises with the
+  day's new sites (2026-10-22, replacing a cap of 100 a day that one sender could use up), each site's latest share within
   4 weeks compared, a random per-site id kept in `.siteread/share-id`. Decided 2026-10-22 by the owner: the benchmark
   publishes the 25th/50th/75th percentiles only, from 10 anonymous sites per metric (five percentiles from 5 sites gave
   every value back). Named rows, the owner's pick 2026-10-22: synacl.com (from Synacl's own weekly share, which the

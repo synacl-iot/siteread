@@ -4,7 +4,7 @@
 export { AGENTS, CRAWLERS, detectAgent, detectCrawler, isSearchCrawler } from './agents.js';
 export { SCANNER_PATH_RE, isScannerPath } from './scanner.js';
 export {
-    SOURCES, parseCidr, parseList, normIp,
+    SOURCES, FEED_URL, parseCidr, parseList, normIp,
     REFRESH_AFTER_MS, DROP_AFTER_MS, MIN_PREFIX, MAX_PREFIXES, MAX_BODY_CHARS,
 } from './ip-ranges.js';
 export { createVerifier, memoryStore } from './verifier.js';

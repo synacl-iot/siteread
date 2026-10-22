@@ -2,14 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp, MAX_SHARE_BYTES } from '../src/app.js';
 import { memoryStore } from '../src/store.js';
-import { share, id, post, NOW, silent } from './helpers.js';
+import { share, id, post, proofFor, NOW, silent } from './helpers.js';
+import { PROOF_STEP } from '../../packages/verify/src/share.js';
 
 const DAY = 86_400_000;
 
 function setup(opts = {}) {
     const store = memoryStore();
     let t = NOW;
-    const app = createApp({ store, now: () => t, log: silent, fetch: null, ...opts });
+    // A proof of work costs nothing in these tests unless one asks for it (proofBaseBits).
+    const app = createApp({ store, now: () => t, log: silent, fetch: null, proofBaseBits: 0, ...opts });
     return { app, store, at: ms => { t = ms; } };
 }
 
@@ -114,16 +116,31 @@ test('share: a body that streams past the cap without a Content-Length is cut of
     assert.ok(sent < 16 * 1024, `read ${sent} bytes`);
 });
 
-test('share: new sites per day are capped; a site already known still gets in', async () => {
-    const { app, at } = setup({ maxNewSitesPerDay: 2 });
-    assert.equal((await post(app, share(1, '2026-W42', { people: 1 }))).status, 200);
-    assert.equal((await post(app, share(2, '2026-W42', { people: 2 }))).status, 200);
-    const third = await post(app, share(3, '2026-W42', { people: 3 }));
-    assert.equal(third.status, 429);
-    assert.equal(third.headers.get('retry-after'), '3600');
-    assert.equal((await post(app, share(1, '2026-W43', { people: 1 }))).status, 200);
+test('share: a new site pays a proof of work at the day’s price; a known site never again', async () => {
+    const { app, store, at } = setup({ proofBaseBits: 8 });
+    const first = share(1, '2026-W42', { people: 1 });
+    const none = await post(app, first);
+    assert.equal(none.status, 400);
+    assert.deepEqual(await none.json(), { ok: false, error: 'a new site needs a proof of work of 8 bits today', need: 8 });
+    assert.equal((await post(app, { ...first, proof: '0'.repeat(21) })).status, 400, 'not a proof: 21 digits');
+    assert.deepEqual(await store.list('sites/'), [], 'nothing kept from a refusal');
+    assert.equal((await post(app, { ...first, proof: proofFor(1, 8) })).status, 200);
+    // Known now: its next weeks need no proof.
+    assert.equal((await post(app, share(1, '2026-W43', { people: 2 }))).status, 200);
+
+    // No cap to use up: the price rises one bit with every PROOF_STEP new sites today, so a flood
+    // pays double for each further step and a real site still gets in by paying the day's price.
+    for (let n = 2; n <= PROOF_STEP; n++) assert.equal((await post(app, { ...share(n, '2026-W42', { people: n }), proof: proofFor(n, 8) })).status, 200);
+    const late = share(900, '2026-W42', { people: 9 });
+    const cheap = await post(app, { ...late, proof: proofFor(900, 8, { exact: true }) });
+    assert.equal(cheap.status, 400);
+    assert.equal((await cheap.json()).need, 9);
+    assert.equal((await post(app, { ...late, proof: proofFor(900, 9) })).status, 200);
+
+    // A new day starts at the base price again.
     at(NOW + DAY);
-    assert.equal((await post(app, share(3, '2026-W42', { people: 3 }))).status, 200);
+    const next = share(901, '2026-W43', { people: 1 });
+    assert.equal((await post(app, { ...next, proof: proofFor(901, 8, { exact: true }) })).status, 200);
 });
 
 test('routes: 404, 405 with Allow, health, benchmark after the aggregate job', async () => {

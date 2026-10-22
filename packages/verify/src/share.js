@@ -41,13 +41,40 @@ export const SHARE_METRICS = Object.freeze({
 // The `code` a refused share carries (validateShare's own, then the endpoint's).
 export const SHARE_REFUSALS = Object.freeze([
     'body', 'unknown-field', 'schema', 'id', 'week', 'version', 'unknown-metric', 'metric-value',
-    'content-type', 'too-large', 'not-json', 'future-week', 'old-week', 'new-site-cap',
+    'content-type', 'too-large', 'not-json', 'future-week', 'old-week', 'proof',
 ]);
 
 export const ID_RE = /^[0-9a-f]{32}$/;
 const WEEK_RE = /^(\d{4})-W(\d{2})$/;
 const VERSION_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}(-[0-9a-z.]{1,20})?$/;
-const KEYS = new Set(['schema', 'id', 'week', 'siteread', 'metrics']);
+const KEYS = new Set(['schema', 'id', 'week', 'siteread', 'metrics', 'proof']);
+const PROOF_RE = /^\d{1,20}$/;
+
+// PROOF OF WORK. A share id is free to make, so a fixed cap on new sites a day was one sender's
+// to use up: a hundred made-up ids in a second, and every real new site refused until midnight.
+// The service never reads an address, so it cannot tell one sender from many; what it can do is
+// make each NEW id cost work. A site's first share carries `proof`, a nonce such that
+// SHA-256(PROOF_PREFIX + id + ":" + nonce) starts with enough zero bits, made once and kept next
+// to the id. The bits a new id needs rise by one for every PROOF_STEP new sites that day (UTC),
+// so on a quiet day it is ~2 s on a laptop, and a flood doubles its own price every 50 ids: 500
+// fakes in a day is ~30 CPU-hours, and a real site still gets in by paying the day's price. Known
+// ids never pay again. Checking is one hash.
+export const PROOF_PREFIX = 'siteread-site-v1:';
+export const PROOF_BASE_BITS = 22;
+export const PROOF_STEP = 50;
+
+/** The zero bits a new site's proof needs when `newToday` new sites came in today. */
+export const proofBitsFor = (newToday, base = PROOF_BASE_BITS) => base + Math.floor(newToday / PROOF_STEP);
+
+/** Leading zero bits of a digest. */
+export function leadingZeroBits(bytes) {
+    let n = 0;
+    for (const b of bytes) {
+        if (b === 0) { n += 8; continue; }
+        return n + Math.clz32(b) - 24;
+    }
+    return n;
+}
 
 const dayMs = d => Date.parse(`${d}T00:00:00Z`);
 const isoDay = ms => new Date(ms).toISOString().slice(0, 10);
@@ -84,7 +111,7 @@ const pct1 = n => Math.round(n * 10) / 10;
  * A digest (its JSON) → { payload, notes }. `notes` says, in plain words, each metric left out
  * and why. Throws when there is no full week to share.
  */
-export function sharePayload(digest, { id, version = VERSION } = {}) {
+export function sharePayload(digest, { id, proof = null, version = VERSION } = {}) {
     if (!ID_RE.test(String(id))) throw new Error('share needs a 32-hex-digit id');
     const metrics = {};
     const notes = [];
@@ -154,6 +181,7 @@ export function sharePayload(digest, { id, version = VERSION } = {}) {
 
     if (!week || !Object.keys(metrics).length) throw new Error(`nothing to share: the digest has no full week of numbers${notes.length ? ` (${notes.join('; ')})` : ''}`);
     const payload = { schema: SHARE_SCHEMA, id, week, siteread: version, metrics };
+    if (proof != null) payload.proof = String(proof);
     const check = validateShare(payload);
     if (!check.ok) throw new Error(`the digest gave a number the endpoint would refuse: ${check.error}`);
     return { payload: check.share, notes };
@@ -173,6 +201,7 @@ export function validateShare(body) {
     if (typeof body.id !== 'string' || !ID_RE.test(body.id)) return bad('id', 'id must be 32 lowercase hex digits');
     if (typeof body.week !== 'string' || !Number.isFinite(weekStart(body.week))) return bad('week', 'week must be an ISO week like 2026-W42');
     if (typeof body.siteread !== 'string' || !VERSION_RE.test(body.siteread)) return bad('version', 'siteread must be a version like 0.3.0');
+    if (body.proof !== undefined && (typeof body.proof !== 'string' || !PROOF_RE.test(body.proof))) return bad('proof', 'proof must be a string of digits');
     const m = body.metrics;
     if (!m || typeof m !== 'object' || Array.isArray(m)) return bad('metric-value', 'metrics must be an object');
     const metrics = {};
@@ -186,5 +215,7 @@ export function validateShare(body) {
         metrics[k] = v;
     }
     if (!Object.keys(metrics).length) return bad('metric-value', 'metrics is empty');
-    return { ok: true, share: { schema: body.schema, id: body.id, week: body.week, siteread: body.siteread, metrics } };
+    const share = { schema: body.schema, id: body.id, week: body.week, siteread: body.siteread, metrics };
+    if (body.proof !== undefined) share.proof = body.proof;
+    return { ok: true, share };
 }

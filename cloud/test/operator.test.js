@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp, clientOf, MAX_SHARE_BYTES, MAX_VERSIONS } from '../src/app.js';
 import { memoryStore } from '../src/store.js';
-import { share, id, post, vendorFetch, NOW, silent } from './helpers.js';
+import { share, id, post, proofFor, vendorFetch, NOW, silent } from './helpers.js';
 
 const DAY = 86_400_000;
 const TOKEN = 'a'.repeat(40);
@@ -12,7 +12,7 @@ function setup(opts = {}) {
     const store = memoryStore();
     let t = NOW;
     const app = createApp({
-        store, now: () => t, log: silent, fetch: vendorFetch(),
+        store, now: () => t, log: silent, fetch: vendorFetch(), proofBaseBits: 0,
         operatorToken: TOKEN, operatorOrigin: SITE, named: new Map([[id(99), 'synacl.com']]), ...opts,
     });
     return { app, store, at: ms => { t = ms; } };
@@ -54,12 +54,12 @@ test('operator: CORS answers only the site origin, and only on this route', asyn
 });
 
 test('operator: counts by day and reason, never a row, an id or a message', async () => {
-    const { app, store, at } = setup({ maxNewSitesPerDay: 2 });
+    const { app, store, at } = setup({ proofBaseBits: 8 });
     await app.runFeed();
-    await post(app, share(1, '2026-W42', { people: 4 }));
-    await post(app, share(99, '2026-W42', { people: 9 }));
+    await post(app, { ...share(1, '2026-W42', { people: 4 }), proof: proofFor(1, 8) });
+    await post(app, { ...share(99, '2026-W42', { people: 9 }), proof: proofFor(99, 8) });
     await post(app, { ...share(2, '2026-W42', { people: 1 }), hostname: 'leak.example' });
-    await post(app, share(3, '2026-W42', { people: 2 }));                       // third new site: cap
+    await post(app, share(3, '2026-W42', { people: 2 }));                       // a new site with no proof
     await post(app, share(1, '2026-W30', { people: 4 }));                       // too old
     await post(app, JSON.stringify({ pad: 'x'.repeat(MAX_SHARE_BYTES) }));
     await post(app, '{}', { type: 'text/plain' });
@@ -71,12 +71,12 @@ test('operator: counts by day and reason, never a row, an id or a message', asyn
     assert.equal(today.day, '2026-10-21');
     assert.deepEqual(today, {
         day: '2026-10-21', taken: 2,
-        refused: { 'unknown-field': 1, 'new-site-cap': 1, 'old-week': 1, 'too-large': 1, 'content-type': 1, 'operator-denied': 1 },
+        refused: { 'unknown-field': 1, proof: 1, 'old-week': 1, 'too-large': 1, 'content-type': 1, 'operator-denied': 1 },
         // These test requests never passed a proxy, so they count as local.
         hits: { share: { local: 7 }, operator: { local: 2 } },
         versions: {},
     });
-    assert.deepEqual(body.newSitesToday, { sites: 2, max: 2 });
+    assert.deepEqual(body.newSitesToday, { sites: 2, proofBits: 8 });
     assert.equal(body.newSites.length, 14);
     assert.equal(body.feed.lists.length, 11);
     assert.deepEqual(body.lastFeedRun.failed, []);

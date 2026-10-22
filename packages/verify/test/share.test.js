@@ -53,7 +53,7 @@ function tmp(t) {
 function runAsync(args, { cwd, env = {}, offline = false } = {}) {
     return new Promise((resolve) => {
         const argv = offline ? ['--import', OFFLINE, BIN, ...args] : [BIN, ...args];
-        execFile(process.execPath, argv, { cwd, env: { ...process.env, ...env }, encoding: 'utf8' }, (err, out, errOut) => {
+        execFile(process.execPath, argv, { cwd, env: { ...process.env, SITEREAD_PROOF_BITS: '8', ...env }, encoding: 'utf8' }, (err, out, errOut) => {
             resolve({ code: err ? err.code : 0, out, err: errOut });
         });
     });
@@ -183,6 +183,10 @@ test('validateShare: refuses anything not in the schema rather than trimming it'
     bad({ metrics: { people: Infinity } }, /number/, 'metric-value');
     bad({ metrics: {} }, /empty/, 'metric-value');
     bad({ metrics: [] }, /metrics must be an object/, 'metric-value');
+    bad({ proof: 123 }, /proof must be/, 'proof');
+    bad({ proof: '12a' }, /proof must be/, 'proof');
+    bad({ proof: '1'.repeat(21) }, /proof must be/, 'proof');
+    assert.deepEqual(validateShare({ ...ok, proof: '4096' }), { ok: true, share: { ...ok, proof: '4096' } });
     assert.equal(validateShare(null).code, 'body');
     assert.equal(validateShare([ok]).ok, false);
     // Metrics come back in schema order whatever order they arrived in.
@@ -282,4 +286,24 @@ test('cli share --yes: sends the printed bytes, prints where it stands, reports 
     const down = await runAsync(['share', file, '--yes', '--endpoint', 'http://127.0.0.1:9/v1/share'], { cwd: dir });
     assert.equal(down.code, 1);
     assert.match(down.err, /could not reach http:\/\/127\.0\.0\.1:9\/v1\/share/);
+
+    // The proof of work went with the payload, made once and kept beside the id.
+    const sentProof = JSON.parse(got[0].body).proof;
+    const [nonce, bits, forId] = readFileSync(join(dir, '.siteread', 'share-proof'), 'utf8').trim().split(' ');
+    assert.equal(nonce, sentProof);
+    assert.equal(forId, readFileSync(join(dir, '.siteread', 'share-id'), 'utf8').trim());
+    assert.ok(Number(bits) >= 8);
+
+    // A busy day: the service asks for more; the CLI makes it, keeps it, and sends nothing itself.
+    answer = { status: 400, body: { ok: false, error: 'a new site needs a proof of work of 11 bits today', need: 11 } };
+    const busy = await runAsync(['share', file, '--yes', '--endpoint', endpoint], { cwd: dir });
+    assert.equal(busy.code, 1);
+    assert.match(busy.err, /proof of work \(11 bits/);
+    assert.match(busy.err, /run share again to send it with the new proof/);
+    const stronger = readFileSync(join(dir, '.siteread', 'share-proof'), 'utf8').trim().split(' ');
+    assert.ok(Number(stronger[1]) >= 11);
+    const before = got.length;
+    answer = { status: 200, body: { ok: true, week: '2026-W42', against: null, metrics: {} } };
+    assert.equal((await runAsync(['share', file, '--yes', '--endpoint', endpoint], { cwd: dir })).code, 0);
+    assert.equal(JSON.parse(got[before].body).proof, stronger[0], 'the next share carries the stronger proof');
 });

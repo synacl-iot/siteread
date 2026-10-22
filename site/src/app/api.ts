@@ -55,7 +55,8 @@ export interface OperatorStatus {
     named: { label: string; week: string | null }[];
   } | null;
   newSites: { day: string; sites: number }[];
-  newSitesToday: { sites: number; max: number };
+  /** New sites today and the proof of work a new site needs right now, in bits (it rises with them). */
+  newSitesToday: { sites: number; proofBits: number };
   /** Per day: shares taken and refused by code, requests by route and kind of client, siteread versions. */
   requests: {
     day: string;

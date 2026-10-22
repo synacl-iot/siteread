@@ -43,6 +43,11 @@ const CLAUDE_BOTS = 'https://claude.com/crawling/bots.json';
 
 // Agent key (agents.js AGENTS / CRAWLERS) → its vendor's published list. Every URL answers
 // { creationTime, prefixes: [{ ipv4Prefix } | { ipv6Prefix }] } (all checked 2026-10-21).
+// The hosted feed (cloud/): every list above in one document, refetched from the vendors every
+// 6 h. The CLI reads it by default (the charter: the feed is opt-out); the library does not, and
+// cloud's own feed job must not, since it is what builds the feed.
+export const FEED_URL = 'https://api.siteread.dev/v1/lists.json';
+
 export const SOURCES = Object.freeze([
     { agent: 'chatgpt-user',     url: 'https://openai.com/chatgpt-user.json' },
     { agent: 'oai-searchbot',    url: 'https://openai.com/searchbot.json' },

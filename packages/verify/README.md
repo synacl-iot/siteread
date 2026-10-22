@@ -15,8 +15,10 @@ npx siteread --help         # the CLI, no install
 
 ## CLI
 
-`check` answers one request. The first call fetches the vendor lists into a cache file; later calls
-reuse a copy younger than 24 h.
+`check` answers one request. The first call fetches the crawler lists into a cache file; later calls
+reuse a copy younger than 24 h. The lists come from the siteread feed (one GET instead of nine;
+below); `--no-feed` fetches each from its vendor instead, and any list the feed cannot give comes
+from its vendor anyway.
 
 ```console
 $ npx siteread check 216.73.216.12 "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)"
@@ -110,7 +112,8 @@ siteread: the whole payload from .siteread/digests/2026-10-18.json, byte for byt
     "gscClicks": 3,
     "gscCtrPct": 1.3,
     "gscPosition": 17.9
-  }
+  },
+  "proof": "2746561"
 }
 siteread: not sent (--dry-run)
 ```
@@ -139,6 +142,12 @@ gscPosition               17.9  9 sites; shown from 10
 - **The id** is 128 random bits in `.siteread/share-id`, made on first use. It makes the benchmark
   count sites rather than shares, and a second share of the same week replaces the first. Delete the
   file to start over as a new site.
+- **The proof** is a proof of work tied to the id: a number that makes SHA-256 of the id start with
+  22 zero bits, a few seconds of CPU once, kept in `.siteread/share-proof`. Only a site's first
+  share needs it. Ids are free to make, so without it one sender could invent a flood of sites; the
+  service never reads an address, so it makes each new site cost time instead, and the price rises
+  by one bit for every 50 new sites in a day. On a busy day the service asks for more; the CLI makes
+  it and tells you to run `share` again.
 - A part with less than a full week (a 4-day log, an export whose last week is cut short) is left
   out and the CLI says so. `--endpoint` (or `SITEREAD_SHARE_URL`) sends elsewhere: `https://` only,
   plain `http://` only to localhost.
@@ -170,7 +179,8 @@ verifier.check('216.73.216.12', 'Mozilla/5.0 … ClaudeBot/1.0; +claudebot@anthr
 | `now` | `Date.now` | a clock, for tests |
 | `log` | `console` | `{ warn, error }`; pass `{}` for silence |
 | `isKnownScannerIp` | none | `(ip) => boolean`, the 444 rule (below) |
-| `feedUrl` | none | one merged document instead of the vendor URLs (below) |
+| `feedUrl` | none | one merged document instead of the vendor URLs (below); `FEED_URL` is the hosted one |
+| `fallback` | `false` | with `feedUrl`: fetch from the vendors what the feed could not give |
 
 It returns:
 
@@ -290,16 +300,21 @@ All of them answer `{ "creationTime": …, "prefixes": [{ "ipv4Prefix": … } | 
 
 ## Privacy
 
-Local use sends nothing anywhere except plain GETs of the URLs above, with the User-Agent
-`siteread/<version>`. No hostnames, URLs or visitor IPs leave your machine. There is no reverse-DNS
+Local use sends nothing anywhere except plain GETs of public crawler lists, with the User-Agent
+`siteread/<version>`: the siteread feed by default, or the vendors' URLs above with `--no-feed` (or
+`SITEREAD_FEED_URL=off`), and those vendors whenever the feed fails. The feed's service keeps no
+address; it counts fetches per day by siteread version. No hostnames, URLs or visitor IPs leave
+your machine. There is no reverse-DNS
 check for the same reason: a PTR lookup sends the visitor's IP to your resolver. `share` is the one
 exception: opt-in, its exact payload printed first, aggregate numbers only.
 
 `feedUrl` points the verifier at one merged document,
-`{ "lists": { "<agent>": { "prefixes": [...], "fetchedAt": "..." } } }`, instead of the vendors. It
-is for the hosted feed (this repo's `cloud/`), which is **not live yet**, so it is off by default and strictly opt-in.
-Every prefix from a feed is re-validated like a vendor's, and a `fetchedAt` in the future is clamped
-to now.
+`{ "lists": { "<agent>": { "prefixes": [...], "fetchedAt": "..." } } }`, instead of the vendors: the
+hosted feed is `https://api.siteread.dev/v1/lists.json` (`FEED_URL`, this repo's `cloud/`, rebuilt
+from the vendors every 6 h). The CLI uses it by default with `fallback: true`, which fetches from the
+vendors whatever the feed could not give; the library leaves both off unless you pass them. Every
+prefix from a feed is re-validated like a vendor's, and a `fetchedAt` in the future is clamped to
+now.
 
 ## License
 

@@ -9,7 +9,7 @@
     <div class="card">
       <span class="tag">check, digest</span>
       <h2 class="card-title">On your machine</h2>
-      <p>Nothing is sent except plain GETs of the vendors' public IP lists, with the user-agent <code>siteread/{{ version }}</code>. There is no reverse-DNS check either: a PTR lookup would send your visitor's IP to your resolver.</p>
+      <p>Nothing is sent except plain GETs of public crawler lists, with the user-agent <code>siteread/{{ version }}</code>. There is no reverse-DNS check either: a PTR lookup would send your visitor's IP to your resolver.</p>
     </div>
     <div class="card">
       <span class="tag">share</span>
@@ -18,15 +18,15 @@
     </div>
     <div class="card">
       <span class="tag">the feed</span>
-      <h2 class="card-title">Public data, opt-in</h2>
-      <p>One file with every vendor's IP list, for anyone who would rather make one request than nine. Off unless you pass <code>feedUrl</code>. The service counts fetches per day and the siteread version that made them; nothing about who.</p>
+      <h2 class="card-title">Public data, on by default</h2>
+      <p>The CLI gets every vendor's IP list from one file at api.siteread.dev, one request instead of nine, and from the vendors themselves whenever that fails. <code>--no-feed</code> skips it. The service counts fetches per day and the siteread version that made them; nothing about who.</p>
     </div>
   </section>
 
   <section class="grid wide privacy-detail">
     <div class="stack">
       <h2 class="display h2 small">A whole share, byte for byte</h2>
-      <p class="muted">From the test site. Thirteen numbers for the last 7 days, a week label, the version, and a random id.</p>
+      <p class="muted">From the test site. Thirteen numbers for the last 7 days, a week label, the version, a random id, and the id's proof of work.</p>
       <pre class="code payload">{{ payload }}</pre>
     </div>
     <div class="stack loose">
@@ -51,7 +51,7 @@
       </div>
       <div class="stack tight-stack">
         <h3>Your id</h3>
-        <p class="small">128 random bits in <code>.siteread/share-id</code>, made the first time you share. It lets the benchmark count sites instead of shares, and a second share of the same week replaces the first. Delete the file to start over as a new site.</p>
+        <p class="small">128 random bits in <code>.siteread/share-id</code>, made the first time you share. It lets the benchmark count sites instead of shares, and a second share of the same week replaces the first. Delete the file to start over as a new site. Its first share also carries a proof of work tied to the id, a few seconds of computing once: made-up sites cost real time, so nobody floods the benchmark for free, and no address is needed to stop them.</p>
       </div>
       <div class="stack tight-stack">
         <h3>This site</h3>
