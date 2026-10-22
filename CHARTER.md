@@ -79,7 +79,7 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
   page says so.
 - ~~Site look~~ decided 2026-10-22 by the owner: **A · Ledger** (cool slate, teal and orange, expanded grotesk, numbers
   in mono), from six directions on a private mockup canvas (https://claude.ai/artifact/TLSBMYHxqw5NKxpYWnVXaK). `site/`
-  is Angular 22 (owner's pick), client-only with no SSR (owner's call 2026-10-22), built on the owner's machine with only `dist/` shipped. Still open: whether the
+  is Angular 22 (owner's pick), with no SSR server (owner's call 2026-10-22): the public pages are prerendered at build time, built on the owner's machine with only `dist/` shipped. Still open: whether the
   footer credits the maker, and synacl.com's row label ("the site siteread was first built to read").
 
 ## Non-goals
