@@ -295,8 +295,12 @@ All of them answer `{ "creationTime": …, "prefixes": [{ "ipv4Prefix": … } | 
   failure, not as an empty list.
 - **Drop:** a copy nobody could refresh for 8 days is dropped, so a vendor's moved ranges cannot mark
   its new IPs as spoofed forever. With no copy, the verdict is `unknown`, never `spoofed`.
-- **Bounds:** a body over 2,000,000 characters, more than 20,000 prefixes, or a prefix broader than
-  /8 (IPv4) or /16 (IPv6) is rejected. A `/0` would verify every address.
+- **Bounds:** a body over 2,000,000 characters or more than 20,000 prefixes is rejected, and a list
+  holding a prefix broader than /16 (IPv4) or /32 (IPv6) is refused whole, keeping the previous
+  copy. The broadest real prefix in any list is a /16 (IPv4) and a /64 (IPv6); a `/0` would verify
+  every address, and since the CLI reads the hosted feed, the limit is what stops a tampered feed
+  from vouching for a whole provider's range. From the feed, a refused list is fetched from its
+  vendor instead.
 
 ## Privacy
 

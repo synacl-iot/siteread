@@ -170,7 +170,7 @@ test('broken responses are failures, not empty lists', async () => {
     assert.deepEqual(r.failed.sort(), ['applebot', 'bingbot', 'gptbot', 'oai-searchbot', 'perplexitybot']);
     assert.match(r.errors.gptbot, /JSON/);
     assert.equal(r.errors['oai-searchbot'], 'no usable prefixes');
-    assert.equal(r.errors.bingbot, 'no usable prefixes', 'a /0 is a broken list, not a big one');
+    assert.equal(r.errors.bingbot, '0.0.0.0/0 is broader than /16; list refused', 'a /0 is a broken list, not a big one');
     assert.equal(r.errors.perplexitybot, 'response too large');
     assert.equal(r.errors.applebot, 'fetch failed');
     assert.equal(v.check('157.55.39.10', UA.bingbot).verdict, 'unknown');
@@ -272,7 +272,8 @@ test('feedUrl: one GET of a merged document replaces every vendor fetch', async 
     const vendorAt = '2026-10-20T18:00:00.000Z';
     const feed = { lists: {
         claudebot: { prefixes: ['216.73.216.0/22'], fetchedAt: vendorAt },
-        'claude-user': { prefixes: ['160.79.106.128/28', 'junk', '0.0.0.0/0'], fetchedAt: vendorAt },
+        'claude-user': { prefixes: ['160.79.106.128/28', 'junk'], fetchedAt: vendorAt },              // junk skipped
+        'claude-searchbot': { prefixes: ['160.79.106.128/28', '34.0.0.0/12'], fetchedAt: vendorAt },  // too broad: refused whole
         googlebot: { prefixes: ['2001:4860:4801:10::/64'], fetchedAt: '2099-01-01T00:00:00.000Z' },   // clamped
         bingbot: { prefixes: ['157.55.39.0/24'] },                                                    // no fetchedAt
         gptbot: { prefixes: ['0.0.0.0/0'], fetchedAt: vendorAt },                                     // nothing usable
@@ -287,6 +288,9 @@ test('feedUrl: one GET of a merged document replaces every vendor fetch', async 
     assert.deepEqual(fetch.calls, [FEED], 'no vendor URL is touched');
     assert.deepEqual(r.fetched.sort(), ['claude-user', 'claudebot', 'googlebot']);
     assert.ok(r.failed.includes('bingbot') && r.failed.includes('gptbot') && r.failed.includes('chatgpt-user'));
+    // A tampered or broken feed cannot vouch for a whole provider's range.
+    assert.match(r.errors['claude-searchbot'], /34\.0\.0\.0\/12 is broader than \/16; list refused/);
+    assert.match(r.errors.gptbot, /0\.0\.0\.0\/0 is broader than \/16/);
     assert.equal(v.check('216.73.216.12', UA.claudebot).verdict, 'verified');
     assert.equal(v.check(SCANNER_IP, UA.claudebot).verdict, 'spoofed');
     assert.equal(v.check('160.79.106.130', UA.claudeUser).verdict, 'verified');
@@ -330,4 +334,14 @@ test('feedUrl with fallback: what the feed cannot give comes from the vendors; n
     const r2 = await v2.refresh();
     assert.deepEqual(r2.failed, []);
     assert.equal(downFeed.calls.length, 1 + new Set(SOURCES.map(s => s.url)).size);
+
+    // A feed that vouches for a whole provider's range: that list is refused and the vendor's real
+    // one is fetched instead, so a spoofer inside the broad range does not pass.
+    const tampered = { lists: { claudebot: { prefixes: ['216.73.216.0/22', '34.0.0.0/12'], fetchedAt: vendorAt } } };
+    const tf = stubFetch((url) => (url === FEED ? new Response(JSON.stringify(tampered), { status: 200 }) : null));
+    const v3 = createVerifier({ fetch: tf, now: clock(), store: memoryStore(), feedUrl: FEED, fallback: true, log: quiet });
+    const r3 = await v3.refresh();
+    assert.ok(tf.calls.includes(claude) && r3.fetched.includes('claudebot'));
+    assert.equal(v3.check('34.1.2.3', UA.claudebot).verdict, 'spoofed');
+    assert.equal(v3.check('216.73.216.12', UA.claudebot).verdict, 'verified');
 });

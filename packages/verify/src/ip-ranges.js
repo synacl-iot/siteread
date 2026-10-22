@@ -32,9 +32,15 @@ export const FETCH_TIMEOUT_MS = 8_000;
 // A list is a few hundred prefixes; these bound what a broken (or hostile) response can cost.
 export const MAX_BODY_CHARS = 2_000_000;
 export const MAX_PREFIXES = 20_000;
-// No vendor publishes anything near this broad. A /0 in a list would verify EVERY address,
-// so a prefix shorter than these is a broken list, not a big one.
-export const MIN_PREFIX = Object.freeze({ ipv4: 8, ipv6: 16 });
+// The broadest prefix a list may hold. A /0 would verify EVERY address, and since the CLI reads
+// the hosted feed by default, the feed's server vouches for every client's "verified": if it were
+// ever taken over, it could add a broad range to any agent and every spoofer in it would pass.
+// Measured 2026-10-22, the broadest real prefix in any list is OpenAI's /16 (chatgpt-user) for
+// IPv4 and Google's /64 for IPv6, so these limits cost nothing real and cut the worst case from
+// a /8 to a /16. A list holding a broader prefix is refused whole (its previous copy kept, the
+// error reported), never trimmed: trimming would silently turn a vendor's real new range into
+// "spoofed", and a refusal says out loud that a limit or a list needs a look.
+export const MIN_PREFIX = Object.freeze({ ipv4: 16, ipv6: 32 });
 // Two processes sharing a store can disagree on the time by a little. A fetchedAt further in
 // the future than this is not skew: it would keep a list "fresh" forever and defeat the drop.
 const CLOCK_SKEW_MS = 5 * 60_000;
@@ -64,8 +70,14 @@ export const SOURCES = Object.freeze([
     { agent: 'bingbot',          url: 'https://www.bing.com/toolbox/bingbot.json' },
 ].map(Object.freeze));
 
-/** 'a.b.c.d/n' or 'x::/n' → { type, net, prefix, cidr } (normalised), or null. */
+/** 'a.b.c.d/n' or 'x::/n' → { type, net, prefix, cidr } (normalised), or null; MIN_PREFIX applies. */
 export function parseCidr(raw) {
+    const p = cidrOf(raw);
+    return p && p.prefix >= MIN_PREFIX[p.type] ? p : null;
+}
+
+/** parseCidr without the breadth limit, so a list parser can tell "too broad" from "not a prefix". */
+function cidrOf(raw) {
     if (typeof raw !== 'string') return null;
     const s = raw.trim();
     const slash = s.indexOf('/');
@@ -76,30 +88,35 @@ export function parseCidr(raw) {
     const prefix = Number(bits);
     const type = net.isIPv4(addr) ? 'ipv4' : net.isIPv6(addr) ? 'ipv6' : null;
     if (!type) return null;
-    if (prefix < MIN_PREFIX[type] || prefix > (type === 'ipv4' ? 32 : 128)) return null;
+    if (prefix > (type === 'ipv4' ? 32 : 128)) return null;
     return { type, net: addr.toLowerCase(), prefix, cidr: `${addr.toLowerCase()}/${prefix}` };
 }
 
-/** The vendors' shared format: { prefixes: [{ ipv4Prefix } | { ipv6Prefix }] } → [cidr]. */
+// One prefix of a list: skipped when it is not a prefix at all, the whole list refused when it
+// is one broader than MIN_PREFIX (see there).
+function addPrefix(out, raw) {
+    const p = cidrOf(raw);
+    if (!p) return;
+    if (p.prefix < MIN_PREFIX[p.type]) throw new Error(`${p.cidr} is broader than /${MIN_PREFIX[p.type]}; list refused`);
+    out.add(p.cidr);
+}
+
+/** The vendors' shared format: { prefixes: [{ ipv4Prefix } | { ipv6Prefix }] } → [cidr]. Throws on a too-broad prefix. */
 export function parseList(body) {
     const items = Array.isArray(body?.prefixes) ? body.prefixes : [];
     const out = new Set();
     for (const it of items) {
         if (out.size >= MAX_PREFIXES) break;
-        const p = parseCidr(it?.ipv4Prefix ?? it?.ipv6Prefix);
-        if (p) out.add(p.cidr);
+        addPrefix(out, it?.ipv4Prefix ?? it?.ipv6Prefix);
     }
     return [...out];
 }
 
-/** A stored copy's prefixes ([cidr]) → [cidr], re-validated and bounded. */
+/** A feed's or a stored copy's prefixes ([cidr]) → [cidr], re-validated and bounded. Throws on a too-broad prefix. */
 export function parsePrefixes(list) {
     if (!Array.isArray(list)) return [];
     const out = new Set();
-    for (const c of list.slice(0, MAX_PREFIXES)) {
-        const p = parseCidr(c);
-        if (p) out.add(p.cidr);
-    }
+    for (const c of list.slice(0, MAX_PREFIXES)) addPrefix(out, c);
     return [...out];
 }
 

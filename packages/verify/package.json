@@ -1,7 +1,16 @@
 {
   "name": "siteread",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Is that crawler who it says it is? Checks an IP + User-Agent against the AI and search vendors' published IP lists. Zero dependencies.",
+  "homepage": "https://siteread.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synacl-iot/siteread.git",
+    "directory": "packages/verify"
+  },
+  "bugs": {
+    "url": "https://github.com/synacl-iot/siteread/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=20"
