@@ -11,7 +11,7 @@ Two long-running Node processes, both listening on `127.0.0.1` only, behind a TL
 | Process | Serves | Command | Port |
 |---|---|---|---|
 | `cloud` | `api.siteread.dev`: the crawler-list feed, the `share` endpoint, the benchmark JSON | `node cloud/bin/serve.js --port 8787 --data <data dir> --public-url https://siteread.dev` | 8787 |
-| `site` | `siteread.dev`: the public pages (Angular, server-rendered) | `node site/server/server.mjs` | 4000 |
+| `site` | `siteread.dev`: the public pages (Angular, server-rendered) | `node --max-old-space-size=96 site/server/server.mjs` | 4000 |
 
 - `cloud` has zero npm dependencies. It runs its two jobs on internal timers (feed every 6 h,
   aggregate hourly). Alternatively, start it with `--no-jobs` and run
@@ -21,14 +21,16 @@ Two long-running Node processes, both listening on `127.0.0.1` only, behind a TL
 
 ## Footprint
 
-| | cloud (measured) | site (estimate, re-measured once built) |
+| | cloud (measured) | site (measured 2026-10-22, Node 26, macOS arm64) |
 |---|---|---|
-| Memory (RSS) | 58 MB idle, 71 MB after a feed build, ~100 MB after a burst of 200 requests | 100–150 MB |
-| CPU | a feed build takes 1.3–3 ms (10.6 ms cold); a share is well under that | light; one render per `/benchmark` miss, cached 5 min |
-| Disk | under 5 MB a year (a share row is ~0.5 KB; the feed is 15.3 KB) | ~5–10 MB of built files |
+| Memory (RSS) | 58 MB idle, 71 MB after a feed build, ~100 MB after a burst of 200 requests | 85 MB idle; levels off at ~245 MB after 1,100 renders with Node's default heap, ~180 MB with `--max-old-space-size=96` (the command above) |
+| CPU | a feed build takes 1.3–3 ms (10.6 ms cold); a share is well under that | ~11 ms per `/benchmark` render; the other pages are prebuilt files; `/benchmark` is cacheable 5 min |
+| Disk | under 5 MB a year (a share row is ~0.5 KB; the feed is 15.3 KB) | ~2 MB of built files |
 | Traffic | the feed is 15.3 KB; even 10,000 fetches a day is ~4.6 GB a month before gzip | small |
 
-Suggested caps per process: `MemoryMax=256M`, a low `CPUQuota` (e.g. 25 %).
+Suggested caps: `cloud` `MemoryMax=256M`; `site` `MemoryMax=320M` with the heap flag above (V8 grows its
+heap lazily up to its default limit, so without the flag the process sits near 256 MB). A low `CPUQuota`
+(e.g. 25 %) for both. Linux with Node 24 may measure differently; re-check on the VM.
 
 ## Network
 
