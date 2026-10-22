@@ -56,7 +56,7 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 - ~~Register the domain~~ done 2026-10-21: **`siteread.dev`** bought ($11/yr). Parked, no DNS until phase 3.
   `.com` `.io` `.app` are taken; nothing else was bought.
 - ~~GitHub owner~~ decided 2026-10-21: `synacl-iot/siteread`, created private; flip to public when the README and
-  licence copy are approved. Held private by the owner 2026-10-21.
+  licence copy are approved. Held private by the owner 2026-10-21; made public by the owner 2026-10-22.
 - ~~The weekly hour number~~ set 2026-10-21: one day a week, under 6 h (see Weekly budget).
 - ~~License~~ decided 2026-10-21: MIT.
 - ~~Claim npm `siteread` and PyPI `siteread`~~ done 2026-10-21 by the owner: npm 0.2.0, PyPI 0.0.1 (a placeholder

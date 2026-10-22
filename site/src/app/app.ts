@@ -32,6 +32,7 @@ const NPM = 'https://www.npmjs.com/package/siteread';
           <p>siteread is free and open source, MIT licensed.</p>
           <ul class="links">
             <li><a [href]="npm">npm package</a></li>
+            <li><a [href]="source">Source on GitHub</a></li>
             <li><a routerLink="/privacy">What share sends</a></li>
           </ul>
         </div>
@@ -41,6 +42,7 @@ const NPM = 'https://www.npmjs.com/package/siteread';
 })
 export class App {
   protected readonly npm = NPM;
+  protected readonly source = 'https://github.com/synacl-iot/siteread';
   // The operator page draws its own header: it is private, so it carries no public navigation.
   // The initial value comes from the address, so that page never flashes the public header.
   protected readonly publicChrome = toSignal(
