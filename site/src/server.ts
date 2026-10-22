@@ -9,17 +9,24 @@
 // no path is ever joined onto the folder at request time, so no "../" can walk out of it. HTML
 // is left to the engine, which serves the prerendered pages itself with their route headers.
 
-import {
-  AngularNodeAppEngine,
-  createNodeRequestHandler,
-  isMainModule,
-  writeResponseToNodeResponse,
-} from '@angular/ssr/node';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { AngularNodeAppEngine, createNodeRequestHandler, writeResponseToNodeResponse } from '@angular/ssr/node';
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const browserDist = join(import.meta.dirname, '../browser');
+
+// Run as the server, or imported by the build (to list routes) and by `ng serve`? Angular's
+// isMainModule compares the start path as written, and the VM starts this file through the
+// `current` symlink while Node reports the resolved path: it said no, and the process exited 0.
+const isMain = (() => {
+  try {
+    return realpathSync(process.argv[1] ?? '') === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+})();
 const engine = new AngularNodeAppEngine();
 
 const TYPES: Record<string, string> = {
@@ -75,7 +82,7 @@ export function staticFiles(root: string): Map<string, StaticFile> {
 
 // Built only when this file runs as the server: the build also imports it, to list the routes,
 // before browser/ exists, and under `ng serve` the dev server serves those files itself.
-const files = isMainModule(import.meta.url) ? staticFiles(browserDist) : new Map<string, StaticFile>();
+const files = isMain ? staticFiles(browserDist) : new Map<string, StaticFile>();
 
 function send(res: ServerResponse, status: number, headers: Record<string, string>, body?: Buffer | string) {
   res.writeHead(status, { ...SECURITY, ...headers });
@@ -106,7 +113,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, next?: (err?: u
   }
 }
 
-if (isMainModule(import.meta.url)) {
+if (isMain) {
   const port = Number(process.env['PORT'] || 4000);
   const host = process.env['HOST'] || '127.0.0.1';
   const server = createServer((req, res) => void handle(req, res));

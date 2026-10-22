@@ -1,0 +1,44 @@
+# The TLS proxy for siteread's three hostnames (cloud/deploy/install.sh puts it in /etc/caddy).
+#
+# PRIVACY. No site block has a `log` directive, so Caddy writes no access log. That is not
+# enough: with no access log, Caddy still records every failed request (a 502 while the site
+# restarts) under `http.log.error`, with the client's IP, port, user-agent and path. On the
+# first deploy that put 97 visitors' addresses in the journal. So every request-scoped logger
+# (all of `http`: proxy errors, Go's TLS handshake errors, the ACME challenge's peer) and the
+# handshake logger are dropped, and only certificate, config and admin messages are kept.
+
+{
+	# Let's Encrypt only, with no account email: nothing here names a person. Caddy's fallback
+	# CA (ZeroSSL) refuses an account without one, so it could only ever fail.
+	cert_issuer acme
+	log default {
+		output stderr
+		exclude http tls.handshake
+	}
+}
+
+siteread.dev {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy 127.0.0.1:4000
+}
+
+www.siteread.dev {
+	redir https://siteread.dev{uri} permanent
+}
+
+api.siteread.dev {
+	# A share is at most 8 KiB (the app refuses more itself); nothing else here takes a body.
+	request_body {
+		max_size 16KB
+	}
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy 127.0.0.1:8787
+}
