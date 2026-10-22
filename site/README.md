@@ -1,15 +1,14 @@
 # siteread.dev
 
-The public site (home, benchmark, docs, privacy) and the private operator page, in Angular 22
-with server-side rendering. Its npm dependencies live in this folder only: `packages/verify` and
+The public site (home, benchmark, docs, privacy) and the private operator page, in Angular 22,
+client-only: the build is static files and nothing runs on the server. Its npm dependencies live in this folder only: `packages/verify` and
 `cloud/` stay at zero. Node `^22.22.3 || ^24.15 || >=26`, for this folder alone.
 
 ```sh
 npm ci
-npm start          # dev server on :4200; the browser and the server use the API at http://127.0.0.1:8787
+npm start          # dev server on :4200, using the API at http://127.0.0.1:8787
 npm test           # Vitest
-npm run build      # dist/site/: browser/ (static and prebuilt pages) and server/ (the SSR bundle)
-npm run serve      # node dist/site/server/server.mjs on :4000
+npm run build      # dist/site/browser/: index.html, the hashed bundles, fonts, robots.txt, sitemap.xml
 ```
 
 Each script first runs `npm run docs`: `scripts/docs.mjs` renders the docs page from named sections
@@ -17,21 +16,20 @@ of the repo's READMEs into `src/app/generated/` (gitignored), so the page cannot
 
 ## Pages
 
-| Path | Rendered | |
+Every page is rendered in the browser from the one `index.html`. The proxy (`cloud/deploy/Caddyfile`)
+sends that shell for each page path with the headers below, and the bundles it names by their hashes.
+
+| Path | Headers | |
 |---|---|---|
-| `/`, `/docs`, `/privacy` | at build time | change only with a release; cached 10 min |
-| `/benchmark` | per request, on the server | the numbers are in the HTML, for crawlers and AI agents that run no JavaScript; cacheable 5 min. When the service does not answer within 3 s: a 503 with `retry-after` and `no-store`, so no cache keeps an empty benchmark |
-| `/operator` | in the browser only | the token lives in a component signal, never in storage or the URL; `noindex`, `no-store`, disallowed in `robots.txt` |
-| anything else | on the server | 404 |
+| `/`, `/docs`, `/privacy`, `/benchmark` | `no-cache` | the benchmark fetches `api.siteread.dev/v1/benchmark.json` before it renders; when the service does not answer within 3 s the page says so |
+| `/operator` | `no-store`, `noindex` | the token lives in a component signal, never in storage or the URL; disallowed in `robots.txt` |
+| anything else that is not a file | 404 | the shell, which shows the not-found page |
 
 ## Configuration
 
 | | |
 |---|---|
 | The API address the browser uses | build time, `angular.json` `define`: production `https://api.siteread.dev`, development `http://127.0.0.1:8787` |
-| `SITEREAD_API_INTERNAL` | the SSR server's own way to the service, default `http://127.0.0.1:8787`. Its answer reaches the browser through hydration's transfer cache, keyed by the public address, so the browser does not fetch again |
-| `PORT`, `HOST` | default `4000`, `127.0.0.1` |
-| Allowed `Host` headers | `siteread.dev`, `localhost`, `127.0.0.1` (`angular.json` `security.allowedHosts`); anything else gets a 400 |
 
 The operator page calls `GET /v1/operator/status` from the browser, so the service must allow this
 page's origin: `SITEREAD_OPERATOR_ORIGIN` (`https://siteread.dev` by default; `http://localhost:4200`
@@ -39,15 +37,13 @@ for `npm start`).
 
 ## Deploy
 
-Built on the owner's machine; only `dist/site/` goes to the server, which needs no `node_modules`:
-`node --max-old-space-size=96 server/server.mjs` from inside it. Memory, caps and the proxy are in
+Built on the owner's machine; only `dist/site/` goes to the server, where Caddy serves its
+`browser/` folder. Nothing in it runs there. The proxy and the rest of the host are in
 [`../cloud/HOSTING.md`](../cloud/HOSTING.md).
 
 ## Privacy
 
-- `src/server.ts` writes no access log: no address, path or user-agent of any request.
+- siteread.dev's access log is the proxy's, the one the privacy page describes; the site adds none.
 - No cookies, analytics or third-party requests. The fonts are served from this site
   (`public/fonts/`, SIL Open Font License 1.1, each licence beside its font), because a font CDN
   would see every visitor's IP.
-- Static files are served from a map built at startup, matched exactly; no request path is ever
-  joined onto the folder.

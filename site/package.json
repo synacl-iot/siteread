@@ -2,7 +2,7 @@
   "name": "siteread-site",
   "version": "0.0.0",
   "private": true,
-  "description": "siteread.dev: the public page, benchmark, docs and the private operator page (Angular, SSR)",
+  "description": "siteread.dev: the public page, benchmark, docs and the private operator page (Angular, client-only)",
   "license": "MIT",
   "engines": {
     "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
@@ -11,8 +11,7 @@
     "docs": "node scripts/docs.mjs",
     "start": "npm run docs && ng serve",
     "build": "npm run docs && ng build",
-    "test": "npm run docs && ng test --watch=false",
-    "serve": "node dist/site/server/server.mjs"
+    "test": "npm run docs && ng test --watch=false"
   },
   "packageManager": "npm@11.12.1",
   "dependencies": {
@@ -21,9 +20,7 @@
     "@angular/core": "22.2.3",
     "@angular/forms": "22.2.3",
     "@angular/platform-browser": "22.2.3",
-    "@angular/platform-server": "22.2.3",
     "@angular/router": "22.2.3",
-    "@angular/ssr": "22.2.3",
     "rxjs": "7.8.2",
     "tslib": "2.8.1"
   },

@@ -1,8 +1,8 @@
 import { InjectionToken } from '@angular/core';
 
 // The service's public address, set at build time (angular.json `define`: production
-// https://api.siteread.dev, development http://127.0.0.1:8787). The SSR server swaps in its own
-// internal address (app.config.server.ts); the browser always uses this one.
+// https://api.siteread.dev, development http://127.0.0.1:8787). The site runs only in the
+// browser, so this is the only address it uses.
 declare const SITEREAD_API: string | undefined;
 export const PUBLIC_API = typeof SITEREAD_API === 'string' ? SITEREAD_API : 'https://api.siteread.dev';
 

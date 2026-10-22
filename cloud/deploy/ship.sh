@@ -10,10 +10,10 @@
 #   cloud/                  the service (zero dependencies), with this deploy/ folder
 #   packages/verify/        package.json, src/ (cloud imports it by relative path) and bin/ (the CLI
 #                           siteread.dev's weekly self-share runs)
-#   site/                   site/dist/site/: browser/ and the self-contained server/
+#   site/                   site/dist/site/: browser/, the static files Caddy serves
 #
 # Rollback: ssh in, `ln -sfn /srv/siteread/releases/<older> /srv/siteread/current`, then
-# `systemctl restart siteread-cloud siteread-site`.
+# `systemctl restart siteread-cloud`.
 
 set -euo pipefail
 

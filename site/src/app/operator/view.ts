@@ -21,9 +21,10 @@ export const REFUSAL_COLUMNS: readonly { title: string; codes: readonly string[]
 const KNOWN = new Set(REFUSAL_COLUMNS.flatMap(c => c.codes));
 
 // API requests by route and kind of client (cloud/src/app.js clientOf), as the operator reads them.
-// `local` on the benchmark is this site's own server rendering /benchmark, not a reader.
+// Page views of /benchmark are its fetches by browsers. Days before the site ran in the browser
+// counted them as `local`, the site's own server rendering the page, so both count as views.
 export const USAGE_COLUMNS: readonly string[] = [
-  'Feed, by siteread', 'Feed, other', 'Benchmark, page renders', 'Benchmark, public', 'Health', 'Other paths',
+  'Feed, by siteread', 'Feed, other', 'Benchmark, page views', 'Benchmark, other', 'Health', 'Other paths',
 ];
 
 type Hits = Record<string, Record<string, number>>;
@@ -32,9 +33,10 @@ type Hits = Record<string, Record<string, number>>;
 export function usageCells(hits: Hits = {}): number[] {
   const all = (route: string) => sum(hits[route] ?? {});
   const one = (route: string, client: string) => hits[route]?.[client] ?? 0;
+  const views = one('benchmark', 'browser') + one('benchmark', 'local');
   return [
     one('feed', 'siteread'), all('feed') - one('feed', 'siteread'),
-    one('benchmark', 'local'), all('benchmark') - one('benchmark', 'local'),
+    views, all('benchmark') - views,
     all('health'), all('other'),
   ];
 }

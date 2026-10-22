@@ -7,14 +7,15 @@
 # safe to repeat, so a fresh Debian 13 VM and the tenth deploy run the same script:
 #
 #   1. SSH by key only.
-#   2. Node 24 LTS from nodejs.org, checksum-checked, in /opt. Debian's nodejs is 20, older than
-#      the site's server accepts. A Node update is a new NODE_VERSION here, then a deploy.
-#   3. Caddy from Debian (its security updates come with unattended-upgrades) as the TLS proxy.
+#   2. Node 24 LTS from nodejs.org, checksum-checked, in /opt, for the service and the jobs.
+#      Debian's nodejs is 20. A Node update is a new NODE_VERSION here, then a deploy.
+#   3. Caddy from Debian (its security updates come with unattended-upgrades) as the TLS proxy,
+#      which also serves the site: it runs in the browser, so it is files only.
 #   4. The `siteread` system user. It owns only its data dir; the code is root's, read-only to it.
 #   5. /etc/siteread/env (0600) with an operator token made here, kept on later runs, and
 #      siteread.dev's own share id, made here once and named siteread.dev.
 #   6. The units, the Caddyfile and siteread.dev's log folder; the firewall opened for 80/443.
-#   7. `current` switched to the release, the services restarted and checked; 5 releases kept.
+#   7. `current` switched to the release, the service restarted and checked; 5 releases kept.
 
 set -euo pipefail
 
@@ -22,6 +23,7 @@ NODE_VERSION=v24.22.1
 RELEASE=${1:?usage: install.sh /srv/siteread/releases/<id>}
 DEPLOY="$RELEASE/cloud/deploy"
 [ -d "$DEPLOY" ] || { echo "install.sh: $DEPLOY is not a release" >&2; exit 1; }
+[ -f "$RELEASE/site/browser/index.html" ] || { echo "install.sh: $RELEASE has no built site" >&2; exit 1; }
 say() { printf 'install: %s\n' "$*"; }
 
 # 1. SSH. sshd keeps the first value it reads, and the image's 50-cloud-init.conf turns
@@ -85,7 +87,7 @@ fi
 /opt/node/bin/node "$DEPLOY/named-env.mjs" /etc/siteread/env "$(cat /var/lib/siteread-self/.siteread/share-id)" siteread.dev | sed 's/^/install: named: /'
 
 # 6. Units, proxy, firewall.
-install -m 0644 "$DEPLOY/siteread-cloud.service" "$DEPLOY/siteread-site.service" \
+install -m 0644 "$DEPLOY/siteread-cloud.service" \
     "$DEPLOY/siteread-log-prune.service" "$DEPLOY/siteread-log-prune.timer" \
     "$DEPLOY/siteread-self-share.service" "$DEPLOY/siteread-self-share.timer" /etc/systemd/system/
 systemctl daemon-reload
@@ -101,14 +103,21 @@ say "proxy and firewall: 22, 80, 443 open"
 # 7. Switch, restart, check, prune.
 ln -sfn "$RELEASE" /srv/siteread/current.new
 mv -Tf /srv/siteread/current.new /srv/siteread/current
-systemctl enable siteread-cloud siteread-site >/dev/null 2>&1
-systemctl restart siteread-cloud siteread-site
+# The site's Node server from before it ran in the browser: Caddy serves its files now.
+if [ -f /etc/systemd/system/siteread-site.service ]; then
+    systemctl disable --now siteread-site >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/siteread-site.service
+    systemctl daemon-reload
+    say "site: the old Node server is stopped and removed"
+fi
+systemctl enable siteread-cloud >/dev/null 2>&1
+systemctl restart siteread-cloud
 ok=""
 for _ in $(seq 1 30); do
-    if curl -fs -o /dev/null http://127.0.0.1:8787/healthz && curl -fs -o /dev/null http://127.0.0.1:4000/; then ok=1; break; fi
+    if curl -fs -o /dev/null http://127.0.0.1:8787/healthz; then ok=1; break; fi
     sleep 1
 done
-[ -n "$ok" ] || { systemctl --no-pager status siteread-cloud siteread-site | tail -30; exit 1; }
+[ -n "$ok" ] || { systemctl --no-pager status siteread-cloud | tail -30; exit 1; }
 say "live: $(readlink /srv/siteread/current)"
 say "healthz: $(curl -fsS http://127.0.0.1:8787/healthz)"
 ls -1dt /srv/siteread/releases/*/ | tail -n +6 | xargs -r rm -rf

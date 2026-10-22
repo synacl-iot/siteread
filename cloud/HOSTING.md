@@ -6,31 +6,31 @@ candidate VM. Numbers were measured on 2026-10-21 unless marked as estimates.
 
 ## What runs
 
-Two long-running Node processes, both listening on `127.0.0.1` only, behind a TLS reverse proxy:
+One long-running Node process, listening on `127.0.0.1` only, behind a TLS reverse proxy that also
+serves the site's files:
 
-| Process | Serves | Command | Port |
+| What | Serves | How | Port |
 |---|---|---|---|
 | `cloud` | `api.siteread.dev`: the crawler-list feed, the `share` endpoint, the benchmark JSON | `node cloud/bin/serve.js --port 8787 --data <data dir> --public-url https://siteread.dev` | 8787 |
-| `site` | `siteread.dev`: the public pages (Angular, server-rendered) | `node --max-old-space-size=96 site/server/server.mjs` | 4000 |
+| `site` | `siteread.dev`: the public pages (Angular, client-only) | static files from `site/browser/`, served by the proxy | — |
 
 - `cloud` has zero npm dependencies. It runs its two jobs on internal timers (feed every 6 h,
   aggregate hourly). Alternatively, start it with `--no-jobs` and run
   `node cloud/bin/job.js feed|aggregate --data <data dir>` from systemd timers.
-- `site` is a self-contained server bundle built elsewhere; the VM gets the built files only.
-- **Node 24 LTS.** The site's server needs Node `^22.22.3 || ^24.15 || >=26`, and `cloud` needs ≥ 20.
+- `site` runs in the browser, built elsewhere; the VM gets the built files only. Every page path
+  gets the one `index.html` shell; any other path that is not a file gets it too, with a 404.
+- **Node 24 LTS.** `cloud` needs ≥ 20.
 
 ## Footprint
 
-| | cloud (measured) | site (measured 2026-10-22, Node 26, macOS arm64) |
+| | cloud (measured) | site |
 |---|---|---|
-| Memory (RSS) | 58 MB idle, 71 MB after a feed build, ~100 MB after a burst of 200 requests | 85 MB idle; levels off at ~245 MB after 1,100 renders with Node's default heap, ~180 MB with `--max-old-space-size=96` (the command above) |
-| CPU | a feed build takes 1.3–3 ms (10.6 ms cold); a share is well under that | ~11 ms per `/benchmark` render; the other pages are prebuilt files; `/benchmark` is cacheable 5 min |
-| Disk | under 5 MB a year (a share row is ~0.5 KB; the feed is 15.3 KB) | ~2 MB of built files |
+| Memory (RSS) | 58 MB idle, 71 MB after a feed build, ~100 MB after a burst of 200 requests | none of its own: the proxy serves files |
+| CPU | a feed build takes 1.3–3 ms (10.6 ms cold); a share is well under that | file serving only; each `/benchmark` view is one `benchmark.json` fetch from the browser, cacheable an hour |
+| Disk | under 5 MB a year (a share row is ~0.5 KB; the feed is 15.3 KB) | under 1 MB of built files |
 | Traffic | the feed is 15.3 KB; even 10,000 fetches a day is ~4.6 GB a month before gzip | small |
 
-Suggested caps: `cloud` `MemoryMax=256M`; `site` `MemoryMax=320M` with the heap flag above (V8 grows its
-heap lazily up to its default limit, so without the flag the process sits near 256 MB). A low `CPUQuota`
-(e.g. 25 %) for both. Linux with Node 24 may measure differently; re-check on the VM.
+Suggested caps for `cloud`: `MemoryMax=256M` and a low `CPUQuota` (e.g. 25 %). Linux with Node 24 may measure differently; re-check on the VM.
 
 ## Network
 
@@ -40,7 +40,7 @@ heap lazily up to its default limit, so without the flag the process sits near 2
 - **Outbound:** HTTPS GETs every 6 h to the crawler vendors' public IP lists, on these hosts:
   `openai.com`, `www.perplexity.com`, `search.developer.apple.com`, `claude.com`,
   `developers.google.com`, `www.bing.com`. Nothing else.
-- **Proxy routes:** `api.siteread.dev` → `127.0.0.1:8787`, `siteread.dev` → `127.0.0.1:4000`.
+- **Proxy routes:** `api.siteread.dev` → `127.0.0.1:8787`; `siteread.dev` → the files in `site/browser/`.
   Pass the `Host` header through.
 
 ## Privacy: hard requirements
@@ -119,10 +119,9 @@ Build on the owner's machine, ship the output; the VM needs no repository access
 build headroom.
 
 - **Ship:** `cloud/` together with `packages/verify/src/` in the same relative layout (cloud imports
-  it by relative path), and the built site (`site/dist/site/`, its `browser/` and `server/`
-  folders).
+  it by relative path), and the built site (`site/dist/site/`, its `browser/` folder).
 - **How:** `rsync` over SSH into a new release directory, then switch a `current` symlink and
-  restart both units. A script and the two unit files will live in this repository under
+  restart the service. A script and the unit files will live in this repository under
   `cloud/deploy/`; the host only needs a user to SSH in as and the paths.
 - **Data stays put:** the data dir lives outside the release directories.
 
