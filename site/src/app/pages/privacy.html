@@ -54,8 +54,12 @@
         <p class="small">128 random bits in <code>.siteread/share-id</code>, made the first time you share. It lets the benchmark count sites instead of shares, and a second share of the same week replaces the first. Delete the file to start over as a new site. Its first share also carries a proof of work tied to the id, a few seconds of computing once: made-up sites cost real time, so nobody floods the benchmark for free, and no address is needed to stop them.</p>
       </div>
       <div class="stack tight-stack">
+        <h3>If you make an account</h3>
+        <p class="small">You need none to use siteread or to share. If you make one, the service keeps your email address to send sign-in links, in a table of its own, and hands it to Resend, the service that delivers them, with open and click tracking off: the account holds your plan and the share ids you linked, never the address, and a share never names an account. Sign-in links, sessions and keys are kept only as hashes. The link's code travels after the <code>#</code>, which browsers never send, so it is in no log. Deleting the account deletes the address, key and links at once; your shared weeks stay, anonymous as they were.</p>
+      </div>
+      <div class="stack tight-stack">
         <h3>This site</h3>
-        <p class="small">No cookies, no analytics scripts, no third-party requests: the fonts are served from siteread.dev itself.</p>
+        <p class="small">No cookies, no analytics scripts, no third-party requests: the fonts are served from siteread.dev itself. Signed in, the account page keeps its session in your browser's local storage, for 30 days or until you sign out.</p>
         <p class="small">Like the sites siteread is made for, siteread.dev keeps an ordinary access log of its pages: each request's address, time, page, referrer and user-agent. Only root can read it on the server. Once a week its owner copies it to their own machine and runs siteread on it, to see who read this site. Every line is deleted after 28 days, in both places. It is never shared or sent anywhere else, and api.siteread.dev keeps no log at all.</p>
       </div>
     </div>

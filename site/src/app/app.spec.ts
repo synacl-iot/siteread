@@ -27,11 +27,6 @@ describe('App', () => {
     expect(el.querySelector('.site-footer')!.textContent).toContain('MIT licensed');
   });
 
-  it('leaves them off the private operator page', async () => {
-    const el = await at('/operator');
-    expect(el.querySelector('.site-header')).toBeNull();
-    expect(el.querySelector('.site-footer')).toBeNull();
-  });
 });
 
 describe('the generated docs', () => {

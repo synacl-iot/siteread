@@ -1,6 +1,6 @@
 # siteread.dev
 
-The public site (home, benchmark, docs, privacy) and the private operator page, in Angular 22,
+The public site (home, benchmark, docs, privacy) and a person's account page, in Angular 22,
 static: the build prerenders the public pages into HTML and nothing runs on the server. Its npm dependencies live in
 this folder only: `packages/verify` stays at zero. Node `^22.22.3 || ^24.15 || >=26`, for this folder alone.
 
@@ -25,7 +25,7 @@ private repo) sends each path its file with the headers below, and the bundles t
 |---|---|---|---|
 | `/`, `/docs`, `/privacy` | `index.html`, `docs/index.html`, `privacy/index.html` | `no-cache` | change only with a release |
 | `/benchmark` | `benchmark/index.html` | `no-cache` | holds the numbers as of the build, stamped `built <time>`; once running, the browser fetches `api.siteread.dev/v1/benchmark.json` and shows the live numbers over them. A build that cannot reach the service still succeeds, and the page says the service did not answer until the live fetch does |
-| `/operator` | `index.csr.html` | `no-store`, `noindex` | the token lives in a component signal, never in storage or the URL; disallowed in `robots.txt` |
+| `/account`, `/account/verify` | `index.csr.html` | `no-store`, `noindex` | sign in by an emailed link (its code after `#`, so in no log), then the plan, an API key and linked share ids; the session in localStorage, never the email; disallowed in `robots.txt`, not linked from the navigation yet |
 | anything else that is not a file | `index.csr.html` | 404 | the shell, which shows the not-found page |
 
 The benchmark snapshot is only as fresh as the last deploy, for readers without JavaScript; a
@@ -37,9 +37,9 @@ scheduled rebuild would narrow that without a server.
 |---|---|
 | The API address the browser uses | build time, `angular.json` `define`: production `https://api.siteread.dev`, development `http://127.0.0.1:8787` |
 
-The operator page calls `GET /v1/operator/status` from the browser, so the service must allow this
-page's origin: `SITEREAD_OPERATOR_ORIGIN` (`https://siteread.dev` by default; `http://localhost:4200`
-for `npm start`).
+The account pages call `/v1/account/*` from the browser, so the service must allow this page's
+origin (`https://siteread.dev` by default; `http://localhost:4200` for `npm start`). The service's
+operator status moved to its private admin panel.
 
 ## Deploy
 
