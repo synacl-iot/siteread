@@ -13,15 +13,16 @@ function setup(opts = {}) {
     return { app, store, at: ms => { t = ms; } };
 }
 
-test('share: stored as sent plus the day, answered with percentiles; no CORS', async () => {
+test('share: stored as sent plus the day, answered against the published snapshot; no CORS', async () => {
     const { app, store } = setup();
     const a = share(1, '2026-W42', { people: 4, gscClicks: 3 });
     const res = await post(app, a);
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('access-control-allow-origin'), null);
+    // No benchmark built yet: nothing to stand against.
     assert.deepEqual(await res.json(), {
-        ok: true, week: '2026-W42', window: { from: '2026-W39', to: '2026-W42' }, sites: 1,
-        percentiles: { people: { value: 4, percentile: 50, sites: 1 }, gscClicks: { value: 3, percentile: 50, sites: 1 } },
+        ok: true, week: '2026-W42', against: null,
+        metrics: { people: { value: 4, sites: 0 }, gscClicks: { value: 3, sites: 0 } },
         benchmark: 'https://siteread.dev/benchmark',
     });
     // The day it came, not the time: a row cannot be lined up against a request log.
@@ -29,17 +30,47 @@ test('share: stored as sent plus the day, answered with percentiles; no CORS', a
 
     await post(app, share(2, '2026-W42', { people: 10 }));
     await post(app, share(3, '2026-W41', { people: 1 }));
+    await app.runAggregate();
     const r = await (await post(app, share(1, '2026-W42', { people: 4 }))).json();
-    assert.equal(r.sites, 3);
-    assert.deepEqual(r.percentiles.people, { value: 4, percentile: 50, sites: 3 });
+    assert.deepEqual(r.against, { generatedAt: new Date(NOW).toISOString(), window: { from: '2026-W39', to: '2026-W42' }, sites: 3, minSites: 10 });
+    // Three sites are under the 10 a published quartile needs: the count, and no band.
+    assert.deepEqual(r.metrics.people, { value: 4, sites: 3 });
+});
+
+test('share: one sender moving its value learns nothing the public page does not show', async () => {
+    // The attack this answer closes: re-share one id and week with value after value, and read
+    // each answer for a change that gives another site's number away.
+    const { app } = setup();
+    const secret = [137, 912, 4410];
+    for (const [i, people] of secret.entries()) await post(app, share(i + 1, '2026-W42', { people }));
+    await app.runAggregate();
+    const seen = new Set();
+    for (let v = 0; v <= 5000; v += 50) {
+        const r = await (await post(app, share(99, '2026-W42', { people: v }))).json();
+        seen.add(JSON.stringify({ ...r.metrics.people, value: null, against: r.against }));
+    }
+    assert.equal(seen.size, 1, 'every answer the same, whatever the value');
+
+    // With 12 anonymous sites the quartiles are public, and the answer is the band among them:
+    // it changes only where a published quartile is.
+    for (let n = 10; n < 19; n++) await post(app, share(n, '2026-W42', { people: n * 100 }));
+    const doc = await app.runAggregate();
+    const { p25, p50, p75 } = doc.metrics.people;
+    const band = async v => (await (await post(app, share(99, '2026-W42', { people: v }))).json()).metrics.people.band;
+    assert.equal(await band(p25 - 1), 'below-p25');
+    assert.equal(await band(p25), 'p25-p50');
+    assert.equal(await band(p50), 'p50-p75');
+    assert.equal(await band(p75 - 1), 'p50-p75');
+    assert.equal(await band(p75), 'p75-up');
+    assert.equal(await band(1e9), 'p75-up');
 });
 
 test('share: the same site and week twice is one row, the newer', async () => {
     const { app, store } = setup();
     await post(app, share(1, '2026-W42', { people: 4 }));
-    const r = await (await post(app, share(1, '2026-W42', { people: 6 }))).json();
-    assert.equal(r.sites, 1);
+    await post(app, share(1, '2026-W42', { people: 6 }));
     assert.deepEqual(await store.list('shares/'), [`shares/2026-W42/${id(1)}.json`]);
+    assert.equal((await app.runAggregate()).sites, 1);
     assert.equal(JSON.parse(await store.get(`shares/2026-W42/${id(1)}.json`)).metrics.people, 6);
 });
 

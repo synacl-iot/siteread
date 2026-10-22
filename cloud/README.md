@@ -79,8 +79,12 @@ checks it with the same module's `validateShare`:
 - **Stored:** the validated share plus the day it arrived (`receivedOn`, not a time).
 - **Counted:** shares taken and refused per day, by a fixed refusal code (`SHARE_REFUSALS`), never by
   message, since a message can echo a field name the sender chose.
-- **Answer:** per metric, the mid-rank percentile among each site's latest share in the 4 weeks
-  ending at that week, with the number of sites that report that metric.
+- **Answer:** per metric, its band among the quartiles `benchmark.json` publishes (below the 25th,
+  25th to 50th, 50th to 75th, 75th or above), only where it publishes them, and the number of sites
+  that report it; read from the hourly snapshot, never the live rows. An exact percentile among the
+  live rows let one sender re-share the same week with value after value and recover every other
+  site's number (3 sites, 90 requests); a band against published numbers gives away nothing the
+  page does not.
 
 ## The aggregate
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { percentileOf, quantile, latestPerSite, windowOf, compare, aggregate } from '../src/benchmark.js';
+import { percentileOf, quantile, latestPerSite, windowOf, bandOf, standing, aggregate } from '../src/benchmark.js';
 import { share, id, NOW } from './helpers.js';
 
 test('percentileOf: mid-rank, ties count half, one site is the 50th', () => {
@@ -34,20 +34,24 @@ test('latestPerSite: one row per site, its latest within the 4 weeks ending at t
     assert.deepEqual(pop.map(r => [r.id, r.week]).sort(), [[id(1), '2026-W42'], [id(4), '2026-W39']]);
 });
 
-test('compare: a percentile per metric, among the sites that report that metric', () => {
-    const rows = [
-        share(1, '2026-W42', { people: 4, gscClicks: 3 }),
-        share(2, '2026-W42', { people: 10 }),
-        share(3, '2026-W41', { people: 1, gscClicks: 9 }),
-    ];
-    const r = compare(rows, rows[0]);
+test('bandOf: below, between and above the published quartiles; a tie goes up', () => {
+    const m = { p25: 10, p50: 20, p75: 30 };
+    assert.deepEqual([9, 10, 19, 20, 29, 30, 1e6].map(v => bandOf(v, m)),
+        ['below-p25', 'p25-p50', 'p25-p50', 'p50-p75', 'p50-p75', 'p75-up', 'p75-up']);
+});
+
+test('standing: a band only where the snapshot publishes quartiles, the count everywhere', () => {
+    const snapshot = {
+        generatedAt: '2026-10-21T12:00:00.000Z', window: { from: '2026-W39', to: '2026-W42' }, sites: 12, minSites: 10,
+        metrics: { people: { sites: 12, p25: 10, p50: 20, p75: 30 }, gscClicks: { sites: 9 } },
+    };
+    const r = standing(share(1, '2026-W42', { people: 25, gscClicks: 3, peopleFromAi: 1 }), snapshot);
     assert.deepEqual(r, {
-        week: '2026-W42', window: { from: '2026-W39', to: '2026-W42' }, sites: 3,
-        percentiles: {
-            people: { value: 4, percentile: 50, sites: 3 },
-            gscClicks: { value: 3, percentile: 25, sites: 2 },
-        },
+        week: '2026-W42',
+        against: { generatedAt: '2026-10-21T12:00:00.000Z', window: { from: '2026-W39', to: '2026-W42' }, sites: 12, minSites: 10 },
+        metrics: { people: { value: 25, sites: 12, band: 'p50-p75' }, gscClicks: { value: 3, sites: 9 }, peopleFromAi: { value: 1, sites: 0 } },
     });
+    assert.deepEqual(standing(share(1, '2026-W42', { people: 25 }), null), { week: '2026-W42', against: null, metrics: { people: { value: 25, sites: 0 } } });
 });
 
 test('aggregate: quartiles only, from 10 anonymous sites up; n and history always, ids never', () => {

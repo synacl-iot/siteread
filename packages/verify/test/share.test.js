@@ -231,7 +231,7 @@ test('cli share: no yes, no send; plain http only to localhost; a broken id file
     assert.match(none.stderr, /no such file: \.siteread\/digests/);
 });
 
-test('cli share --yes: sends the printed bytes, prints percentiles, reports a refusal', async (t) => {
+test('cli share --yes: sends the printed bytes, prints where it stands, reports a refusal', async (t) => {
     const dir = tmp(t);
     const file = join(dir, 'd.json');
     writeFileSync(file, JSON.stringify(await fixtureDigest()));
@@ -251,8 +251,13 @@ test('cli share --yes: sends the printed bytes, prints percentiles, reports a re
     const endpoint = `http://127.0.0.1:${server.address().port}/v1/share`;
 
     answer.body = {
-        ok: true, week: '2026-W42', window: { from: '2026-W39', to: '2026-W42' }, sites: 3,
-        percentiles: { people: { value: 4, percentile: 33, sites: 3 }, gscPosition: { value: 17.9, percentile: 83, sites: 3 } },
+        ok: true, week: '2026-W42',
+        against: { generatedAt: '2026-10-21T09:00:12.000Z', window: { from: '2026-W39', to: '2026-W42' }, sites: 14, minSites: 10 },
+        metrics: {
+            people: { value: 4, sites: 14, band: 'below-p25' },
+            gscPosition: { value: 17.9, sites: 14, band: 'p50-p75' },
+            gscClicks: { value: 3, sites: 9 },
+        },
         benchmark: 'https://siteread.dev/benchmark\u001b[31m',
     };
     const r = await runAsync(['share', file, '--yes', '--endpoint', endpoint], { cwd: dir });
@@ -263,9 +268,10 @@ test('cli share --yes: sends the printed bytes, prints percentiles, reports a re
     assert.match(got[0].ua, new RegExp(`^siteread/${VERSION.replace(/\./g, '\\.')} `));
     // What went over the wire is, byte for byte, what was printed first.
     assert.ok(r.out.startsWith(`${got[0].body}\n`));
-    assert.match(r.out, /sent\. 2026-W42 compared with 3 sites: each site's latest share, 2026-W39 to 2026-W42/);
-    assert.match(r.out, /\npeople\s+4\s+33rd\s+3\n/);
-    assert.match(r.out, /\ngscPosition\s+17\.9\s+83rd\s+3 {2}\(lower is better\)\n/);
+    assert.match(r.out, /sent 2026-W42\. Against the benchmark built 2026-10-21 09:00 UTC: 14 anonymous sites, 2026-W39 to 2026-W42/);
+    assert.match(r.out, /\npeople\s+4\s+below the 25th percentile\n/);
+    assert.match(r.out, /\ngscPosition\s+17\.9\s+50th to 75th percentile {2}\(lower is better\)\n/);
+    assert.match(r.out, /\ngscClicks\s+3\s+9 sites; shown from 10\n/);
     assert.match(r.out, /benchmark: https:\/\/siteread\.dev\/benchmark\[31m\n$/);   // no raw escape
 
     answer = { status: 400, body: { ok: false, error: 'week 2026-W42 is more than 8 weeks ago' } };

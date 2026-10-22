@@ -4,7 +4,7 @@
 //   siteread check <ip> "<user-agent>"   exit 0 verified · 2 spoofed · 3 unknown / n/a · 1 usage or error
 //   siteread lists
 //   siteread digest --gsc <export> --log <file> …   JSON for the seo-read skill's weekly memo
-//   siteread share [<digest>]           opt-in: one week's aggregates → the benchmark, a percentile back
+//   siteread share [<digest>]           opt-in: one week's aggregates → the benchmark, where you stand back
 //   siteread --help
 //
 // Lists are cached in one file (os.tmpdir()/siteread/lists.json, or $SITEREAD_CACHE) and
@@ -29,7 +29,7 @@ Usage:
   siteread digest [options]            a Search Console export + access log -> JSON numbers
                                        for a weekly read (the seo-read skill writes the memo)
   siteread share [<digest.json|dir>]   opt-in: send one week of a digest's aggregate numbers
-                                       to the public benchmark and get your percentiles back
+                                       to the public benchmark and see where you stand
                                        (default: the newest digest in .siteread/digests)
   siteread --help | --version
 
@@ -265,7 +265,10 @@ const USER_AGENT = `siteread/${VERSION} (+https://www.npmjs.com/package/siteread
 const DIGEST_RE = /^\d{4}-\d{2}-\d{2}\.json$/;
 // A server's words go to the terminal: no escape sequences from someone else's endpoint.
 const clean = s => String(s ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
-const ordinal = n => `${n}${[11, 12, 13].includes(n % 100) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+const BAND_TEXT = Object.freeze({
+    'below-p25': 'below the 25th percentile', 'p25-p50': '25th to 50th percentile',
+    'p50-p75': '50th to 75th percentile', 'p75-up': '75th percentile or above',
+});
 
 /** The site's random share id, made (0600) on first use. */
 function shareId(file) {
@@ -338,17 +341,24 @@ async function cmdShare({ flags, opts, pos }) {
         process.stderr.write(`siteread: ${endpoint} did not take it: HTTP ${res.status}${r?.error ? `: ${clean(r.error)}` : ''}\n`);
         return 1;
     }
-    const rows = Object.entries(r.percentiles ?? {}).filter(([, p]) => p && Number.isFinite(p.percentile));
+    // Where each number falls among the quartiles the benchmark publishes, and only where it
+    // publishes them: the service never answers finer than the public page (cloud/src/benchmark.js).
+    const a = r.against;
+    const min = Number(a?.minSites) || 10;
+    const rows = Object.entries(r.metrics ?? {}).filter(([, m]) => m && typeof m === 'object');
+    const where = m => BAND_TEXT[m.band] ?? `${Number(m.sites) || 0} site${Number(m.sites) === 1 ? '' : 's'}; shown from ${min}`;
     const w = Math.max(6, ...rows.map(([k]) => k.length));
-    const sites = Number(r.sites) || 0;
+    const ww = Math.max(5, ...rows.map(([, m]) => where(m).length));
     const out = [
-        `sent. ${clean(r.week)} compared with ${sites} site${sites === 1 ? '' : 's'}: each site's latest share, ${clean(r.window?.from)} to ${clean(r.window?.to)}`,
+        a
+            ? `sent ${clean(r.week)}. Against the benchmark built ${clean(a.generatedAt).slice(0, 16).replace('T', ' ')} UTC: ${Number(a.sites) || 0} anonymous site${Number(a.sites) === 1 ? '' : 's'}, ${clean(a.window?.from)} to ${clean(a.window?.to)}`
+            : `sent ${clean(r.week)}. The benchmark has not been built yet; it is rebuilt every hour.`,
         '',
-        `${'metric'.padEnd(w)}  ${'yours'.padStart(9)}  percentile  sites`,
-        ...rows.map(([k, p]) => `${clean(k).padEnd(w)}  ${clean(p.value).padStart(9)}  ${ordinal(Math.round(p.percentile)).padStart(10)}  ${clean(p.sites).padStart(5)}`
-            + (SHARE_METRICS[k]?.lowerIsBetter ? '  (lower is better)' : '')),
+        `${'metric'.padEnd(w)}  ${'yours'.padStart(9)}  ${'where'.padEnd(ww)}`,
+        ...rows.map(([k, m]) => `${clean(k).padEnd(w)}  ${clean(m.value).padStart(9)}  ${where(m).padEnd(ww)}`.trimEnd()
+            + (SHARE_METRICS[k]?.lowerIsBetter && m.band ? '  (lower is better)' : '')),
     ];
-    if (sites < 2) out.push('', 'Yours is the only site in that window so far: every percentile is 50th until others share.');
+    if (!rows.some(([, m]) => m.band)) out.push('', `No number has ${min} anonymous sites yet, so none shows where you stand; your share counts toward them.`);
     if (r.benchmark) out.push('', `benchmark: ${clean(r.benchmark)}`);
     process.stdout.write(`${out.join('\n')}\n`);
     return 0;

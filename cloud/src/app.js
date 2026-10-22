@@ -2,7 +2,7 @@
 // node:http (src/node.js) or any host that speaks Request/Response.
 //
 //   GET  /v1/lists.json        the merged crawler-list feed (feed.js)
-//   POST /v1/share             one site's week of aggregates → stored → its percentiles
+//   POST /v1/share             one site's week of aggregates → stored → its standing (benchmark.js)
 //   GET  /v1/benchmark.json    the public aggregate (benchmark.js)
 //   GET  /v1/operator/status   counts for the operator page; needs the operator token (config.js)
 //   GET  /healthz              when the feed and the aggregate were last built
@@ -27,7 +27,7 @@
 import { validateShare, isoWeek, weekStart, addWeeks } from '../../packages/verify/src/share.js';
 import { VERSION } from '../../packages/verify/src/version.js';
 import { buildFeed, FEED_KEY } from './feed.js';
-import { compare, aggregate, windowOf, MIN_SITES } from './benchmark.js';
+import { standing, aggregate, MIN_SITES } from './benchmark.js';
 
 export const BENCHMARK_KEY = 'benchmark.json';
 export const LAST_RUN_KEY = 'feed/last-run.json';
@@ -205,8 +205,8 @@ export function createApp({
         await store.put(`shares/${s.week}/${s.id}.json`, JSON.stringify({ ...s, receivedOn: today }));
         count('taken');
 
-        const rows = (await Promise.all(windowOf(s.week).map(w => rowsUnder(`shares/${w}/`)))).flat();
-        return json(200, { ok: true, ...compare(rows, s), benchmark: `${publicUrl}/benchmark` });
+        // Against the published snapshot, never the live rows: see standing().
+        return json(200, { ok: true, ...standing(s, await readJson(BENCHMARK_KEY)), benchmark: `${publicUrl}/benchmark` });
     }
 
     async function health() {

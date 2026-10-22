@@ -59,22 +59,23 @@ test('share round trip: CLI → HTTP → stored → percentile back; the site ne
     const sent = JSON.parse(printed);
     const key = `shares/2026-W42/${sent.id}.json`;
     assert.deepEqual(JSON.parse(await store.get(key)), { ...sent, receivedOn: '2026-10-21' });
-    assert.match(first.out, /compared with 1 site: each site's latest share, 2026-W39 to 2026-W42/);
-    assert.match(first.out, /Yours is the only site/);
+    assert.match(first.out, /sent 2026-W42\. The benchmark has not been built yet/);
+    assert.match(first.out, /No number has 10 anonymous sites yet/);
 
-    // Five more sites share; the same digest shared again replaces its row and ranks among six.
+    // Five more sites share and the aggregate job builds the snapshot. The same digest shared again
+    // replaces its row and is told only what the public page shows: six sites, under the 10 a
+    // spread needs, so a count per number and no standing.
     for (const [n, people, pos] of [[1, 1, 30], [2, 2, 25], [3, 9, 12], [4, 40, 8], [5, 4, 40]]) {
         assert.equal((await post(app, share(n, n % 2 ? '2026-W42' : '2026-W41', { people, gscPosition: pos }))).status, 200);
     }
+    await app.runAggregate();
     const again = await cli(['share', '--yes', '--endpoint', endpoint], dir);
     assert.equal(again.code, 0, again.err);
-    assert.match(again.out, /compared with 6 sites/);
-    // people: 1, 2, 4, 4(us), 9, 40 → 2 below, 2 tied → (2 + 1) / 6 = 50th
-    assert.match(again.out, /\npeople\s+4\s+50th\s+6\n/);
-    // gscPosition: 8, 12, 17.9(us), 25, 30, 40 → (2 + 0.5) / 6 = 42nd, and lower is better
-    assert.match(again.out, /\ngscPosition\s+17\.9\s+42nd\s+6 {2}\(lower is better\)\n/);
-    // a metric only this site sends ranks among one
-    assert.match(again.out, /\ngscClicks\s+3\s+50th\s+1\n/);
+    assert.match(again.out, /Against the benchmark built 2026-10-21 12:00 UTC: 6 anonymous sites, 2026-W39 to 2026-W42/);
+    assert.match(again.out, /\npeople\s+4\s+6 sites; shown from 10\n/);
+    assert.match(again.out, /\ngscPosition\s+17\.9\s+6 sites; shown from 10\n/);
+    // a metric only this site sends
+    assert.match(again.out, /\ngscClicks\s+3\s+1 site; shown from 10\n/);
     assert.equal((await store.list('shares/')).filter(k => k.endsWith(`${sent.id}.json`)).length, 1);
 
     // The aggregate job: n printed; six sites are under the 10 a published quartile needs, so the

@@ -77,8 +77,8 @@ the JSON into a weekly memo.
 
 ## Share (opt-in)
 
-`share` sends one week of a digest's aggregate numbers to the public benchmark and prints where your
-site sits among the others. It prints the exact bytes first and sends nothing without a yes (a
+`share` sends one week of a digest's aggregate numbers to the public benchmark and prints where each
+number stands among the quartiles the benchmark publishes. It prints the exact bytes first and sends nothing without a yes (a
 prompt, or `--yes` in a script). `--dry-run` prints and stops.
 
 ```console
@@ -108,17 +108,20 @@ siteread: the whole payload from .siteread/digests/2026-10-18.json, byte for byt
 siteread: not sent (--dry-run)
 ```
 
-With six sites in the window (five of them made up for this example), the answer reads:
+The answer places each number in a band among the published 25th, 50th and 75th percentiles, and
+only for numbers the benchmark page already shows a spread for; for the rest it gives the count of
+sites so far. It is read from the published benchmark (rebuilt hourly), not from other sites' rows,
+so it never tells you more than the page does. With 14 anonymous sites, 9 of them with Search
+Console numbers (made up for this example):
 
 ```console
-sent. 2026-W42 compared with 6 sites: each site's latest share, 2026-W39 to 2026-W42
+sent 2026-W42. Against the benchmark built 2026-10-21 09:00 UTC: 14 anonymous sites, 2026-W39 to 2026-W42
 
-metric                   yours  percentile  sites
-people                       4        50th      6
-peopleFromAi                 0        25th      6
-gscImpressions             238        42nd      6
-gscClicks                    3        33rd      6
-gscPosition               17.9        42nd      6  (lower is better)
+metric                   yours  where
+people                       4  below the 25th percentile
+peopleFromAi                 0  25th to 50th percentile
+gscImpressions             238  9 sites; shown from 10
+gscPosition               17.9  9 sites; shown from 10
 …
 ```
 
