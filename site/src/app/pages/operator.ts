@@ -6,7 +6,7 @@ import { API_BASE, OperatorStatus } from '../api';
 import { operatorView } from '../operator/view';
 
 /**
- * The private status page. Rendered in the browser only (app.routes.server.ts), never indexed.
+ * The private status page. Never indexed (the proxy sends `x-robots-tag`, robots.txt disallows it).
  * The token lives in this component's signal and nowhere else: not in storage, not in the URL,
  * so a reload asks again. The hidden username field lets a password manager fill the token.
  */

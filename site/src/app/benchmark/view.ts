@@ -1,6 +1,6 @@
 import { Benchmark, BenchmarkMetric, NamedRow } from '../api';
 
-// benchmark.json → what the page prints. Pure, so the server and the browser render the same
+// benchmark.json → what the page prints. Pure, so every reader gets the same
 // text: a fixed en-US number format and UTC times, never the reader's locale or zone.
 
 export interface MetricSpec {

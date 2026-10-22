@@ -1,6 +1,6 @@
 import { Component, input, signal } from '@angular/core';
 
-/** Copies `text` to the clipboard. Rendered on the server as a plain button; works once hydrated. */
+/** Copies `text` to the clipboard. */
 @Component({
   selector: 'app-copy',
   template: `<button type="button" class="btn" (click)="copy()" [attr.aria-label]="label()">{{ done() ? 'Copied' : 'Copy' }}</button>`,
