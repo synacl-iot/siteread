@@ -43,7 +43,10 @@ describe('Operator', () => {
     expect(el.textContent).toContain('1 of 2 fresh');
     expect(el.textContent).toContain('perplexity-user kept from an older fetch');
     expect(el.textContent).toContain('Token held in this tab only');
-    expect(el.querySelectorAll('.op-table tbody tr').length).toBe(2 + 7);
+    // Vendor lists, then 7 days of API requests, then 7 days of shares.
+    expect(el.querySelectorAll('.op-table tbody tr').length).toBe(2 + 7 + 7);
+    expect(el.textContent).toContain('6 fetches');
+    expect(el.textContent).toContain('0.3.0 ×29');
     expect(el.innerHTML).not.toContain(TOKEN);
     http.verify();
   });

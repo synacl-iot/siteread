@@ -19,11 +19,35 @@ export const REFUSAL_COLUMNS: readonly { title: string; codes: readonly string[]
 ];
 const KNOWN = new Set(REFUSAL_COLUMNS.flatMap(c => c.codes));
 
+// API requests by route and kind of client (cloud/src/app.js clientOf), as the operator reads them.
+// `local` on the benchmark is this site's own server rendering /benchmark, not a reader.
+export const USAGE_COLUMNS: readonly string[] = [
+  'Feed, by siteread', 'Feed, other', 'Benchmark, page renders', 'Benchmark, public', 'Health', 'Other paths',
+];
+
+type Hits = Record<string, Record<string, number>>;
+
+/** One day's requests, one number per USAGE_COLUMNS entry. */
+export function usageCells(hits: Hits = {}): number[] {
+  const all = (route: string) => sum(hits[route] ?? {});
+  const one = (route: string, client: string) => hits[route]?.[client] ?? 0;
+  return [
+    one('feed', 'siteread'), all('feed') - one('feed', 'siteread'),
+    one('benchmark', 'local'), all('benchmark') - one('benchmark', 'local'),
+    all('health'), all('other'),
+  ];
+}
+
 export interface OperatorView {
   feedCard: { value: string; note: string; warn: boolean };
   benchCard: { value: string; note: string };
   newCard: { value: string; max: string };
   refusedCard: { value: string; note: string };
+  feedTodayCard: { value: string; note: string };
+  usage: { day: string; cells: number[] }[];
+  usageColumns: readonly string[];
+  /** siteread versions that called in the last 7 days, most calls first: '0.3.0 ×12 · 0.2.1 ×3'. */
+  versions: string;
   lastRun: string;
   lists: { agent: string; prefixes: string; fetched: string; fresh: boolean; error: string }[];
   newSites: { day: string; sites: number; pct: number }[];
@@ -69,6 +93,19 @@ export function operatorView(s: OperatorStatus): OperatorView {
       : { value: 'not built', note: 'the aggregate job has not run' },
     newCard: { value: String(s.newSitesToday.sites), max: `of ${s.newSitesToday.max} allowed` },
     refusedCard: { value: String(refusedToday), note: todayCodes.length ? todayCodes.join(', ') : 'none today' },
+    feedTodayCard: (() => {
+      const f = today?.hits?.['feed'] ?? {};
+      const n = sum(f);
+      return { value: `${n} ${n === 1 ? 'fetch' : 'fetches'}`, note: `${f['siteread'] ?? 0} by siteread; each install fetches at most once a day` };
+    })(),
+    usage: s.requests.slice(-7).reverse().map(d => ({ day: d.day, cells: usageCells(d.hits) })),
+    usageColumns: USAGE_COLUMNS,
+    versions: (() => {
+      const by = new Map<string, number>();
+      for (const d of s.requests.slice(-7)) for (const [ver, n] of Object.entries(d.versions ?? {})) by.set(ver, (by.get(ver) ?? 0) + n);
+      const list = [...by].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      return list.length ? list.map(([ver, n]) => `${ver} ×${n}`).join(' · ') : 'none yet';
+    })(),
     lastRun: !run
       ? 'the feed job has not run'
       : run.error

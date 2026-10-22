@@ -56,5 +56,12 @@ export interface OperatorStatus {
   } | null;
   newSites: { day: string; sites: number }[];
   newSitesToday: { sites: number; max: number };
-  requests: { day: string; taken: number; refused: Record<string, number> }[];
+  /** Per day: shares taken and refused by code, requests by route and kind of client, siteread versions. */
+  requests: {
+    day: string;
+    taken: number;
+    refused: Record<string, number>;
+    hits?: Record<string, Record<string, number>>;
+    versions?: Record<string, number>;
+  }[];
 }

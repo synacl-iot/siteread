@@ -1,0 +1,24 @@
+# siteread.dev shares its own week (self-share.sh). Started by siteread-self-share.timer.
+
+[Unit]
+Description=siteread.dev shares its own week to its benchmark
+After=siteread-cloud.service
+Requires=siteread-cloud.service
+
+[Service]
+Type=oneshot
+# Root to read the proxy's log folder (0700 caddy); it writes only its own state.
+ExecStart=/usr/bin/bash /srv/siteread/current/cloud/deploy/self-share.sh
+StateDirectory=siteread-self
+StateDirectoryMode=0700
+Environment=SITEREAD_CACHE=/var/lib/siteread-self/lists.json
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX

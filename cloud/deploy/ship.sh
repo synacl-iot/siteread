@@ -8,7 +8,8 @@
 # VM needs no repo, no npm and no build headroom. A release is:
 #
 #   cloud/                  the service (zero dependencies), with this deploy/ folder
-#   packages/verify/        package.json + src/: cloud imports it by relative path
+#   packages/verify/        package.json, src/ (cloud imports it by relative path) and bin/ (the CLI
+#                           siteread.dev's weekly self-share runs)
 #   site/                   site/dist/site/: browser/ and the self-contained server/
 #
 # Rollback: ssh in, `ln -sfn /srv/siteread/releases/<older> /srv/siteread/current`, then
@@ -31,7 +32,7 @@ STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/cloud" "$STAGE/packages/verify" "$STAGE/site"
 rsync -a --exclude test/ --exclude .data/ --exclude node_modules/ "$ROOT/cloud/" "$STAGE/cloud/"
-rsync -a "$ROOT/packages/verify/package.json" "$ROOT/packages/verify/src" "$STAGE/packages/verify/"
+rsync -a "$ROOT/packages/verify/package.json" "$ROOT/packages/verify/src" "$ROOT/packages/verify/bin" "$STAGE/packages/verify/"
 rsync -a "$ROOT/site/dist/site/" "$STAGE/site/"
 
 # Root owns the code (the receiving user, since owners are not copied), readable by the service

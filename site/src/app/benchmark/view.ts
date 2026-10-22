@@ -47,6 +47,20 @@ export const GROUPS: readonly GroupSpec[] = [
   },
 ];
 
+// How the page introduces each named site; a label not listed here is named without a note.
+export const NAMED_ABOUT: Readonly<Record<string, string>> = {
+  'synacl.com': 'the site siteread was first built to read',
+  'siteread.dev': 'this site, read by siteread itself',
+};
+
+export interface NamedCell {
+  label: string;
+  /** '96 · 44th'; null when that site did not report this number. */
+  text: string | null;
+  /** Its strip position in %, or null. */
+  marker: number | null;
+}
+
 export interface RowView {
   key: string;
   label: string;
@@ -56,14 +70,13 @@ export interface RowView {
   quartiles: string;
   /** '9 of 10 anonymous sites'. Empty when shown. */
   waiting: string;
-  /** The named site's value and, from the same threshold, its rank: '96 · 44th'. */
-  named: string | null;
+  /** Each named site's value and, from the same threshold, its rank, in the service's order. */
+  named: NamedCell[];
   sitesText: string;
   hiText: string;
   /** Strip geometry in % of the scale; the strip itself is decoration, the cells carry the numbers. */
   box: { left: number; width: number } | null;
   median: number | null;
-  marker: number | null;
 }
 
 export interface GroupView {
@@ -75,7 +88,11 @@ export interface GroupView {
 export interface BenchmarkView {
   sites: number;
   minSites: number;
-  named: { label: string; week: string | null } | null;
+  named: { label: string; week: string | null }[];
+  /** One sentence naming them: '2 sites are named, by their owner's choice: …'. Empty with none. */
+  namedText: string;
+  /** 'synacl.com and siteread.dev', for the header line. */
+  namedLabels: string;
   windowText: string;
   builtText: string;
   /** No metric has reached minSites yet: the page leads with the count. */
@@ -111,13 +128,13 @@ export const utcMinute = (iso: string) => `${iso.slice(0, 16).replace('T', ' ')}
 
 const pct = (v: number, hi: number) => Math.round(Math.max(0, Math.min(100, (v / hi) * 100)) * 10) / 10;
 
-export function rowView(spec: MetricSpec, m: BenchmarkMetric | undefined, minSites: number, named: NamedRow | null): RowView {
+export function rowView(spec: MetricSpec, m: BenchmarkMetric | undefined, minSites: number, named: readonly NamedRow[]): RowView {
   const sites = m?.sites ?? 0;
   const q = m && m.p25 != null && m.p50 != null && m.p75 != null ? [m.p25, m.p50, m.p75] : null;
-  const own = named?.metrics[spec.key];
-  // The strip's right end: past both the 75th percentile and the named value, so neither sits on
-  // the edge. A percentage never runs past 100.
-  let hi = niceCeil(Math.max(q?.[2] ?? 0, own?.value ?? 0) * 1.25);
+  const own = named.map(n => n.metrics[spec.key]);
+  // The strip's right end: past the 75th percentile and every named value, so none sits on the
+  // edge. A percentage never runs past 100.
+  let hi = niceCeil(Math.max(q?.[2] ?? 0, ...own.map(o => o?.value ?? 0)) * 1.25);
   if (spec.unit === '%') hi = Math.min(hi, 100);
   return {
     key: spec.key,
@@ -126,17 +143,32 @@ export function rowView(spec: MetricSpec, m: BenchmarkMetric | undefined, minSit
     shown: Boolean(q),
     quartiles: q ? q.map(v => withUnit(fmt(v), spec.unit)).join(' · ') : '',
     waiting: q ? '' : `${sites} of ${minSites} anonymous sites`,
-    named: own ? withUnit(fmt(own.value), spec.unit) + (own.percentile != null ? ` · ${ordinal(own.percentile)}` : '') : null,
+    named: named.map((n, i) => {
+      const o = own[i];
+      return {
+        label: n.label,
+        text: o ? withUnit(fmt(o.value), spec.unit) + (o.percentile != null ? ` · ${ordinal(o.percentile)}` : '') : null,
+        marker: o ? pct(o.value, hi) : null,
+      };
+    }),
     sitesText: q ? `${sites} sites` : `shown from ${minSites}`,
     hiText: withUnit(fmt(hi), spec.unit),
     box: q ? { left: pct(q[0], hi), width: Math.round((pct(q[2], hi) - pct(q[0], hi)) * 10) / 10 } : null,
     median: q ? pct(q[1], hi) : null,
-    marker: own ? pct(own.value, hi) : null,
   };
 }
 
+/** 'synacl.com (the site …) is the one named site.' or 'N sites are named, by their owner's choice: …'. */
+export function namedSentence(labels: readonly string[]): string {
+  const say = (l: string) => (NAMED_ABOUT[l] ? `${l} (${NAMED_ABOUT[l]})` : l);
+  if (!labels.length) return '';
+  if (labels.length === 1) return `${say(labels[0])} is the one named site, by its owner's choice.`;
+  const list = labels.map(say);
+  return `${labels.length} sites are named, by their owner's choice: ${list.slice(0, -1).join(', ')} and ${list.at(-1)}.`;
+}
+
 export function benchmarkView(b: Benchmark): BenchmarkView {
-  const named = b.named[0] ?? null;
+  const named = b.named;
   const known = new Set(GROUPS.flatMap(g => g.rows.map(r => r.key)));
   const extra: MetricSpec[] = Object.keys(b.metrics).filter(k => !known.has(k)).map(k => ({ key: k, label: k, about: b.metrics[k].about }));
   const specs = extra.length ? [...GROUPS, { title: 'More', note: 'newer metrics', rows: extra }] : GROUPS;
@@ -152,7 +184,9 @@ export function benchmarkView(b: Benchmark): BenchmarkView {
   return {
     sites: b.sites,
     minSites: b.minSites,
-    named: named ? { label: named.label, week: named.week } : null,
+    named: named.map(n => ({ label: n.label, week: n.week })),
+    namedText: namedSentence(named.map(n => n.label)),
+    namedLabels: named.length > 1 ? `${named.slice(0, -1).map(n => n.label).join(', ')} and ${named.at(-1)!.label}` : (named[0]?.label ?? ''),
     windowText: b.window ? `each site's latest share, ${b.window.from} to ${b.window.to}` : 'no shares yet',
     builtText: `built ${utcMinute(b.generatedAt)}`,
     early: !Object.values(b.metrics).some(m => m.p50 != null),

@@ -11,7 +11,8 @@
 #      the site's server accepts. A Node update is a new NODE_VERSION here, then a deploy.
 #   3. Caddy from Debian (its security updates come with unattended-upgrades) as the TLS proxy.
 #   4. The `siteread` system user. It owns only its data dir; the code is root's, read-only to it.
-#   5. /etc/siteread/env (0600) with an operator token made here, kept on later runs.
+#   5. /etc/siteread/env (0600) with an operator token made here, kept on later runs, and
+#      siteread.dev's own share id, made here once and named siteread.dev.
 #   6. The units, the Caddyfile and siteread.dev's log folder; the firewall opened for 80/443.
 #   7. `current` switched to the release, the services restarted and checked; 5 releases kept.
 
@@ -76,12 +77,19 @@ if [ ! -f /etc/siteread/env ]; then
     say "secrets: new operator token in /etc/siteread/env"
 fi
 chmod 0600 /etc/siteread/env
+# siteread.dev shares its own week from here (self-share.sh); its id never leaves the VM.
+install -d -m 0700 -o root -g root /var/lib/siteread-self /var/lib/siteread-self/.siteread
+if [ ! -f /var/lib/siteread-self/.siteread/share-id ]; then
+    (umask 077; openssl rand -hex 16 > /var/lib/siteread-self/.siteread/share-id)
+fi
+/opt/node/bin/node "$DEPLOY/named-env.mjs" /etc/siteread/env "$(cat /var/lib/siteread-self/.siteread/share-id)" siteread.dev | sed 's/^/install: named: /'
 
 # 6. Units, proxy, firewall.
 install -m 0644 "$DEPLOY/siteread-cloud.service" "$DEPLOY/siteread-site.service" \
-    "$DEPLOY/siteread-log-prune.service" "$DEPLOY/siteread-log-prune.timer" /etc/systemd/system/
+    "$DEPLOY/siteread-log-prune.service" "$DEPLOY/siteread-log-prune.timer" \
+    "$DEPLOY/siteread-self-share.service" "$DEPLOY/siteread-self-share.timer" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now siteread-log-prune.timer >/dev/null 2>&1
+systemctl enable --now siteread-log-prune.timer siteread-self-share.timer >/dev/null 2>&1
 install -m 0644 "$DEPLOY/Caddyfile" /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || { caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; exit 1; }
 systemctl reload-or-restart caddy

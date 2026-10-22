@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp, MAX_SHARE_BYTES } from '../src/app.js';
+import { createApp, clientOf, MAX_SHARE_BYTES, MAX_VERSIONS } from '../src/app.js';
 import { memoryStore } from '../src/store.js';
 import { share, id, post, vendorFetch, NOW, silent } from './helpers.js';
 
@@ -72,6 +72,9 @@ test('operator: counts by day and reason, never a row, an id or a message', asyn
     assert.deepEqual(today, {
         day: '2026-10-21', taken: 2,
         refused: { 'unknown-field': 1, 'new-site-cap': 1, 'old-week': 1, 'too-large': 1, 'content-type': 1, 'operator-denied': 1 },
+        // These test requests never passed a proxy, so they count as local.
+        hits: { share: { local: 7 }, operator: { local: 2 } },
+        versions: {},
     });
     assert.deepEqual(body.newSitesToday, { sites: 2, max: 2 });
     assert.equal(body.newSites.length, 14);
@@ -94,6 +97,46 @@ test('operator: counts by day and reason, never a row, an id or a message', asyn
     await post(app, share(1, '2026-W46', { people: 4 }));
     await app.flushStats();
     assert.deepEqual(await store.list('stats/'), ['stats/2026-11-21.json']);
+});
+
+test('usage: clientOf reads the kind of client, never an address', () => {
+    const req = (headers) => new Request('http://localhost/v1/lists.json', { headers });
+    const viaProxy = { 'x-forwarded-proto': 'https', 'x-forwarded-for': '203.0.113.9' };
+    assert.deepEqual(clientOf(req({})), { client: 'local', version: null });
+    assert.deepEqual(clientOf(req({ ...viaProxy, 'user-agent': 'siteread/0.3.0 (+https://www.npmjs.com/package/siteread)' })), { client: 'siteread', version: '0.3.0' });
+    assert.deepEqual(clientOf(req({ ...viaProxy, 'user-agent': 'siteread/1.2.3-beta.1' })), { client: 'siteread', version: '1.2.3-beta.1' });
+    assert.deepEqual(clientOf(req({ ...viaProxy, 'user-agent': 'Mozilla/5.0 (Macintosh)' })), { client: 'browser', version: null });
+    for (const ua of ['siteread/<script>', 'siteread/1.2', 'curl/8.7.1', '']) {
+        assert.deepEqual(clientOf(req({ ...viaProxy, 'user-agent': ua })), { client: 'other', version: null }, ua);
+    }
+});
+
+test('usage: every route counted per day by kind of client; versions capped; no agent string kept', async () => {
+    const { app, store } = setup();
+    await app.runFeed();
+    const get = (path, ua, proxied = true) => app.fetch(new Request(`http://localhost${path}`, {
+        headers: { ...(proxied ? { 'x-forwarded-proto': 'https' } : {}), ...(ua ? { 'user-agent': ua } : {}) },
+    }));
+    const cli = v => `siteread/${v} (+https://www.npmjs.com/package/siteread)`;
+    assert.equal((await get('/v1/lists.json', cli('0.3.0'))).status, 200);
+    await get('/v1/lists.json', cli('0.3.0'));
+    await get('/v1/lists.json', 'curl/8.7.1');
+    await get('/v1/benchmark.json', 'Mozilla/5.0 (X11; Linux x86_64)');
+    await get('/v1/benchmark.json', 'node', false);                       // the site rendering a page
+    await get('/wp-login.php', 'zgrab/0.x');
+    for (let i = 0; i < MAX_VERSIONS + 5; i++) await get('/healthz', cli(`9.9.${i}`));
+    await app.flushStats();
+
+    const body = await (await status(app, { authorization: `Bearer ${TOKEN}` })).json();
+    const today = body.requests.at(-1);
+    assert.deepEqual(today.hits, {
+        feed: { siteread: 2, other: 1 }, benchmark: { browser: 1, local: 1 }, other: { other: 1 },
+        health: { siteread: MAX_VERSIONS + 5 }, operator: { local: 1 },
+    });
+    assert.equal(today.versions['0.3.0'], 2);
+    assert.equal(Object.keys(today.versions).length, MAX_VERSIONS, 'a flood of versions stops growing the counts');
+    const kept = (await store.get('stats/2026-10-21.json')) + JSON.stringify(body);
+    for (const s of ['curl', 'Mozilla', 'zgrab', 'node', 'wp-login']) assert.ok(!kept.includes(s), `${s} kept`);
 });
 
 test('operator: the last feed run is recorded, a failed vendor included', async () => {

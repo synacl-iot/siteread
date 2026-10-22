@@ -48,6 +48,11 @@
         <span class="small muted">the cap resets at 00:00 UTC</span>
       </div>
       <div class="card">
+        <span class="small muted">Feed today</span>
+        <span class="mono op-value">{{ v.feedTodayCard.value }}</span>
+        <span class="small muted">{{ v.feedTodayCard.note }}</span>
+      </div>
+      <div class="card">
         <span class="small muted">Refused today</span>
         <span class="mono op-value">{{ v.refusedCard.value }}</span>
         <span class="small muted">{{ v.refusedCard.note }}</span>
@@ -103,6 +108,33 @@
           <div class="row between mono small muted"><span>{{ v.weeks[0].week.slice(5) }} · {{ v.weeks[0].sites }}</span><span>{{ v.weeks.at(-1)!.week.slice(5) }} · {{ v.weeks.at(-1)!.sites }}</span></div>
         }
       </div>
+    </section>
+
+    <section class="stack">
+      <h2 class="display h2 small">API requests, last 7 days</h2>
+      <div class="table-scroll op-table">
+        <table class="numbers">
+          <thead>
+            <tr>
+              <th scope="col">Day</th>
+              @for (c of v.usageColumns; track c) {
+                <th scope="col" class="right">{{ c }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of v.usage; track d.day) {
+              <tr>
+                <th scope="row" class="mono">{{ d.day }}</th>
+                @for (n of d.cells; track $index) {
+                  <td class="mono right">{{ n }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted">siteread versions calling in: {{ v.versions }}. Counted by route and kind of client from the user-agent; no address and no user-agent string is kept.</p>
     </section>
 
     <section class="stack">

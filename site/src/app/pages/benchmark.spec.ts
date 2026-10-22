@@ -54,4 +54,21 @@ describe('BenchmarkPage', () => {
     const el = await render({ ok: true, data: sample() });
     expect(el.innerHTML).not.toMatch(/\b[0-9a-f]{32}\b/);
   });
+
+  it('shows two named sites, each with its own marker, and says which has not shared yet', async () => {
+    const el = await render({ ok: true, data: sample({
+      named: [
+        { label: 'synacl.com', week: '2026-W42', metrics: { people: { value: 96, percentile: 44 } } },
+        { label: 'siteread.dev', week: null, metrics: {} },
+      ],
+    }) });
+    expect(text(el.querySelector('.bench-meta')!)).toContain('14 anonymous sites + synacl.com and siteread.dev');
+    expect(text(el.querySelector('.bench-intro')!)).toContain('2 sites are named');
+    const people = el.querySelector('.metrics tbody tr')!;
+    expect(people.querySelectorAll('.marker').length).toBe(1);
+    expect(text(people)).toContain('synacl.com 96 · 44th');
+    expect(text(people)).toContain('siteread.dev: no share yet');
+    expect([...el.querySelectorAll('.notice')].map(text)).toContain('siteread.dev has not shared in this window yet.');
+    expect(el.querySelectorAll('.legend .key-marker.m1').length).toBe(1);
+  });
 });

@@ -103,7 +103,9 @@ over ten pin none.
 - The public aggregate never carries an anonymous row or any id, and no percentile is published
   from fewer than 10 anonymous sites.
 - The operator status is counts only: feed ages, the last feed run, shares and refusals per day,
-  new sites per day. No row, no id.
+  new sites per day, and requests per day by route and kind of client (`clientOf`: siteread with
+  its version, a browser, anything else, or `local` for what did not come through the proxy). No
+  row, no id, no address, no User-Agent string.
 
 ## License
 

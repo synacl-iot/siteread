@@ -3,14 +3,14 @@
   @if (view(); as v) {
     <section class="stack">
       <h1 class="display h1 small">How sites compare</h1>
-      <p class="mono muted bench-meta">{{ v.sites }} anonymous {{ v.sites === 1 ? 'site' : 'sites' }}@if (v.named) { + {{ v.named.label }}} · {{ v.windowText }} · {{ v.builtText }}</p>
+      <p class="mono muted bench-meta">{{ v.sites }} anonymous {{ v.sites === 1 ? 'site' : 'sites' }}@if (v.named.length) { + {{ v.namedLabels }}} · {{ v.windowText }} · {{ v.builtText }}</p>
       @if (!v.early) {
-        <p class="bench-intro">Weekly numbers that sites chose to send with <code>siteread share</code>. A metric shows its spread once {{ v.minSites }} anonymous sites report it; until then it shows the count.@if (v.named) { {{ v.named.label }} is the one named site, the site siteread was first built to read.} Every other site is anonymous.</p>
+        <p class="bench-intro">Weekly numbers that sites chose to send with <code>siteread share</code>. A metric shows its spread once {{ v.minSites }} anonymous sites report it; until then it shows the count.@if (v.namedText) { {{ v.namedText }}} Every other site is anonymous.</p>
         <div class="legend" aria-hidden="true">
           <div><span class="key-box"></span>middle half of sites (25th to 75th percentile)</div>
           <div><span class="key-median"></span>median</div>
-          @if (v.named) {
-            <div><span class="key-marker"></span>{{ v.named.label }}</div>
+          @for (n of v.named; track n.label; let i = $index) {
+            <div><span class="key-marker" [class.m1]="i > 0"></span>{{ n.label }}</div>
           }
         </div>
       }
@@ -22,12 +22,14 @@
           <p class="mono early-num">{{ v.sites }} <span>of {{ v.minSites }}</span></p>
           <p class="muted">anonymous sites needed before any spread is shown</p>
         </div>
-        <p>This benchmark starts small and says so. With fewer than {{ v.minSites }} anonymous sites, a published median or quartile could give away another site's exact number, so each row shows only how many sites report it.@if (v.named) { {{ v.named.label }}, the one named site, shows its own numbers from week one.}</p>
+        <p>This benchmark starts small and says so. With fewer than {{ v.minSites }} anonymous sites, a published median or quartile could give away another site's exact number, so each row shows only how many sites report it.@if (v.named.length === 1) { {{ v.named[0].label }}, the one named site, shows its own numbers from week one.} @else if (v.named.length > 1) { The named sites show their own numbers from week one.}</p>
       </section>
     }
 
-    @if (v.named && !v.named.week) {
-      <p class="notice">{{ v.named.label }} has not shared in this window.</p>
+    @for (n of v.named; track n.label) {
+      @if (!n.week) {
+        <p class="notice">{{ n.label }} has not shared in this window yet.</p>
+      }
     }
 
     @for (g of v.groups; track g.title; let gi = $index) {
@@ -45,8 +47,8 @@
                   <th scope="col">Spread</th>
                 }
                 <th scope="col">25th, 50th and 75th percentile</th>
-                @if (v.named) {
-                  <th scope="col">{{ v.named.label }}</th>
+                @for (n of v.named; track n.label) {
+                  <th scope="col">{{ n.label }}</th>
                 }
                 @if (!v.early) {
                   <th scope="col">Sites</th>
@@ -68,8 +70,10 @@
                           <div class="box" [style.left.%]="r.box.left" [style.width.%]="r.box.width"></div>
                           <div class="median" [style.left.%]="r.median"></div>
                         }
-                        @if (r.marker !== null) {
-                          <div class="marker" [style.left.%]="r.marker"></div>
+                        @for (c of r.named; track c.label; let i = $index) {
+                          @if (c.marker !== null) {
+                            <div class="marker" [class.m1]="i > 0" [style.left.%]="c.marker"></div>
+                          }
                         }
                       </div>
                       <div class="scale" [attr.data-hi]="r.hiText"></div>
@@ -82,12 +86,12 @@
                       <span class="muted">{{ r.waiting }}</span>
                     }
                   </td>
-                  @if (v.named) {
-                    <td class="num named">
-                      @if (r.named) {
-                        {{ v.named.label }} {{ r.named }}
+                  @for (c of r.named; track c.label; let i = $index) {
+                    <td class="num named" [class.n1]="i > 0">
+                      @if (c.text) {
+                        {{ c.label }} {{ c.text }}
                       } @else {
-                        <span class="muted">{{ v.named.label }}: not shared</span>
+                        <span class="muted">{{ c.label }}: no share yet</span>
                       }
                     </td>
                   }
@@ -105,8 +109,8 @@
     <section class="stack">
       <div class="group-head">
         <h2 class="display h2 small">Sites that shared, by week</h2>
-        @if (v.named) {
-          <span class="note">{{ v.named.label }} included</span>
+        @if (v.named.length) {
+          <span class="note">named sites included</span>
         }
       </div>
       @if (v.history.length) {

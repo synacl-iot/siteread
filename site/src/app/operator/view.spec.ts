@@ -1,5 +1,5 @@
 import { OperatorStatus } from '../api';
-import { operatorView, REFUSAL_COLUMNS, refusalCells } from './view';
+import { operatorView, REFUSAL_COLUMNS, refusalCells, USAGE_COLUMNS, usageCells } from './view';
 
 export function status(over: Partial<OperatorStatus> = {}): OperatorStatus {
   const days = Array.from({ length: 14 }, (_, i) => `2026-10-${String(9 + i).padStart(2, '0')}`);
@@ -25,6 +25,10 @@ export function status(over: Partial<OperatorStatus> = {}): OperatorStatus {
     requests: days.map(day => ({
       day, taken: 2,
       refused: (day === '2026-10-22' ? { 'unknown-field': 1, 'old-week': 1, 'operator-denied': 2 } : {}) as Record<string, number>,
+      hits: day === '2026-10-22'
+        ? { feed: { siteread: 5, other: 1 }, benchmark: { local: 40, browser: 3, siteread: 1 }, health: { other: 2 }, other: { other: 9 } }
+        : { feed: { siteread: 4 } } as Record<string, Record<string, number>>,
+      versions: (day === '2026-10-22' ? { '0.3.0': 5, '0.2.1': 1 } : { '0.3.0': 4 }) as Record<string, number>,
     })),
     ...over,
   };
@@ -68,5 +72,30 @@ describe('operatorView', () => {
   it('reports a feed run that failed as a whole', () => {
     const v = operatorView(status({ lastFeedRun: { at: '2026-10-22T06:00:00.000Z', error: 'store is read-only' } }));
     expect(v.lastRun).toBe('last run 2026-10-22 06:00 UTC failed: store is read-only');
+  });
+});
+
+describe('API usage', () => {
+  it('splits the feed by siteread and the benchmark by page renders', () => {
+    expect(usageCells({ feed: { siteread: 5, other: 1 }, benchmark: { local: 40, browser: 3, siteread: 1 }, health: { other: 2 }, other: { other: 9 } }))
+      .toEqual([5, 1, 40, 4, 2, 9]);
+    expect(usageCells(undefined)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(usageCells({}).length).toBe(USAGE_COLUMNS.length);
+  });
+
+  it('counts today’s feed and the versions calling in over 7 days', () => {
+    const v = operatorView(status());
+    expect(v.feedTodayCard).toEqual({ value: '6 fetches', note: '5 by siteread; each install fetches at most once a day' });
+    expect(v.usage[0]).toEqual({ day: '2026-10-22', cells: [5, 1, 40, 4, 2, 9] });
+    expect(v.usage[1]).toEqual({ day: '2026-10-21', cells: [4, 0, 0, 0, 0, 0] });
+    expect(v.versions).toBe('0.3.0 ×29 · 0.2.1 ×1');
+  });
+
+  it('copes with days counted before usage was', () => {
+    const old = status();
+    for (const d of old.requests) { delete d.hits; delete d.versions; }
+    const v = operatorView(old);
+    expect(v.feedTodayCard.value).toBe('0 fetches');
+    expect(v.versions).toBe('none yet');
   });
 });
