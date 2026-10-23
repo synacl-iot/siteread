@@ -18,7 +18,7 @@ export const routes: Routes = [
   { path: 'privacy', component: Privacy, title: 'What siteread sends · siteread' },
   { path: 'blog', component: Blog, title: 'Blog · siteread' },
   { path: `blog/${LAUNCH.slug}`, component: PostLaunch, title: `${LAUNCH.title} · siteread` },
-  // Lazy: most visitors never need the account pages. Not linked from the navigation yet.
+  // Lazy: most visitors never need the account pages. Linked as Account in the header.
   { path: 'account', loadComponent: () => import('./pages/account').then(m => m.AccountPage), title: 'Your account · siteread' },
   { path: 'account/verify', loadComponent: () => import('./pages/account-verify').then(m => m.AccountVerify), title: 'Signing in · siteread' },
   { path: '**', component: NotFound, title: 'Not found · siteread' },

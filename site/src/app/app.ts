@@ -16,6 +16,7 @@ const NPM = 'https://www.npmjs.com/package/siteread';
             <li><a routerLink="/docs" routerLinkActive ariaCurrentWhenActive="page">Docs</a></li>
             <li><a routerLink="/blog" routerLinkActive ariaCurrentWhenActive="page">Blog</a></li>
             <li><a routerLink="/privacy" routerLinkActive ariaCurrentWhenActive="page">Privacy</a></li>
+            <li><a routerLink="/account" routerLinkActive ariaCurrentWhenActive="page">Account</a></li>
             <li><a [href]="npm">npm</a></li>
           </ul>
         </nav>
