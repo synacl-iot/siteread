@@ -15,19 +15,33 @@ cap is spent, stop and say so.
 
 ## Starting a session here
 
-- State: phases 1 (`packages/verify`) and 2 (`siteread digest` + the `seo-read` skill, now in `plugins/siteread/`) done 2026-10-21. Phase 3's
-  `cloud/` (feed, `share` endpoint, aggregate job, operator status) and `siteread share` (0.2.1) built in PR #2, not
-  95 tests (`npm test` in `packages/verify` and, since 2026-10-22, in the private repo's `cloud/`). `site/` built 2026-10-22 in the Ledger look
-  (owner's pick) on `phase3-site`, PR #3, stacked on PR #2: Angular 22 with SSR, its deps in `site/`
-  only, Node ≥ 22.22 for the site alone, 42 tests (`npm test` in `site`). Both deployed 2026-10-22 from `phase3-site`
-  to the owner's own VM (build here, ship
-  `dist/`; the deploy now lives in the private repo); `https://siteread.dev` is live. DNS is at Namecheap, the owner's to edit. npm
-  `siteread` 0.2.1 (this release, published by the owner 2026-10-22; the earlier 0.2.1 never reached npm) and a PyPI
-  `siteread` 0.0.1 placeholder are the owner's publishes; the next npm release is 0.2.2, also the owner's to publish. The name `siteread` is final
-  (owner's pick, domain `siteread.dev` bought 2026-10-21); further names stay the owner's call. The owner made the repo public 2026-10-22, and moved `cloud/` to the private `synacl-iot/siteread-cloud` the same day.
-- The weekly cap in `CHARTER.md` starts after the initial release (the whole solution live end to end, cloud
-  included); until then build. Once it applies, it is
-  real: log the week's spend in its table, stop when spent, and say so.
+- State (end of 2026-10-23): all four phases are live. `packages/verify` (npm `siteread` 0.2.2, published by the
+  owner 2026-10-22; 77 tests), the `seo-read` skill as the Claude Code plugin `siteread` (`plugins/siteread/`),
+  the hosted service (private repo) and `site/` (siteread.dev: home, benchmark, docs, privacy, blog with the launch
+  post at `/blog/introducing-siteread`, `/account`; 47 tests, `npm test` in `site`, Node >= 22.22 for the site alone).
+  PRs #1 to #18 are merged or closed; none is open. The repo has been public since 2026-10-22. The initial release
+  completed 2026-10-22 17:22 UTC, so the weekly cap applies. Further npm releases and the PyPI `siteread` 0.0.1
+  placeholder are the owner's publishes. The name `siteread` and the domain are final; further names stay the owner's call.
+- Deploys: merge here, then pin this repo's `main` as the `public` submodule in the private repo and ship from there
+  (build on the owner's machine, ship `dist/`). Merging a PR needs the owner's word "merge"; deploying needs "deploy".
+- Server-side work, billing and plans are tracked in the private repo's `docs/HANDOFF.md`, with dated session
+  archives in its `docs/archives/`. Read it first when the work touches the service.
+- Open on this repo's side (2026-10-24):
+  - Mon 2026-10-26: run the `seo-read` skill on real data next to the owner's own Monday SEO review and compare the
+    memos. It has not had a real-data run yet; this is its review. Fix what the run shows and bump the plugin version.
+  - Around 2026-10-26: the first named row's weekly share (run on that site's side, not from here). Check the row renders.
+  - Around 2026-10-29: siteread.dev's own first automatic share, once its log holds a full week; then its first
+    weekly read.
+  - Phase 4 is "done when" posted to dev.to and HN: both are the owner's to post. HN refused siteread.dev as a
+    link for the owner's account (2026-10-23); the owner parked HN. If picked up again: a Show HN with the GitHub
+    repo URL. Drafts are in the private repo's `docs/launch-drafts.md`.
+  - Owner items not confirmed done: Namecheap's CAA record, no-mail records, a Search Console TXT for siteread.dev;
+    the browser checklist (light/dark, phone width, copy buttons, keyboard only, the platinum headings); whether the
+    footer credits the maker.
+  - The Synacl workspace names under "History" below, and the "Port by copying" rule, mention `iotoneweb` in a
+    public file. Flagged 2026-10-22, left for the owner.
+- The weekly cap in `CHARTER.md` applies since the initial release (2026-10-22). It is real: log the week's spend
+  in its table, stop when spent, and say so.
 - History before this repo existed lives in the Synacl workspace's memory (`project_siteread_side_tool`,
   `project_seo_audit_sept`, `project_ai_traffic_view`) and the archive
   `iotoneweb/.claude/archives/2026-09-10-seo-audit-growth-plan.md` (Measurement log = the memo shape to copy).
