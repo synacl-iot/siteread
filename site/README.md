@@ -1,6 +1,6 @@
 # siteread.dev
 
-The public site (home, benchmark, docs, privacy) and a person's account page, in Angular 22,
+The public site (home, benchmark, docs, privacy, blog) and a person's account page, in Angular 22,
 static: the build prerenders the public pages into HTML and nothing runs on the server. Its npm dependencies live in
 this folder only: `packages/verify` stays at zero. Node `^22.22.3 || ^24.15 || >=26`, for this folder alone.
 
@@ -24,6 +24,7 @@ private repo) sends each path its file with the headers below, and the bundles t
 | Path | File | Headers | |
 |---|---|---|---|
 | `/`, `/docs`, `/privacy` | `index.html`, `docs/index.html`, `privacy/index.html` | `no-cache` | change only with a release |
+| `/blog`, `/blog/<slug>` | `blog/index.html`, `blog/<slug>/index.html` | `no-cache` | one entry per post in `src/app/pages/posts.ts`, with its own canonical and Open Graph tags (`src/app/seo.ts`); add each post to `public/sitemap.xml` too |
 | `/benchmark` | `benchmark/index.html` | `no-cache` | holds the numbers as of the build, stamped `built <time>`; once running, the browser fetches `api.siteread.dev/v1/benchmark.json` and shows the live numbers over them. A build that cannot reach the service still succeeds, and the page says the service did not answer until the live fetch does |
 | `/account`, `/account/verify` | `index.csr.html` | `no-store`, `noindex` | sign in by an emailed link (its code after `#`, so in no log), then the plan, an API key and linked share ids; the session in localStorage, never the email; disallowed in `robots.txt`, not linked from the navigation yet |
 | anything else that is not a file | `index.csr.html` | 404 | the shell, which shows the not-found page |

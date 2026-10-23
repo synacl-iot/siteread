@@ -36,7 +36,7 @@ IoT customers. Different audience, different brand, different domain.
 | 1 | `packages/verify` — npm `siteread`: crawler verification lib + CLI | `npx siteread check <ip> "<ua>"` answers verified / spoofed / unknown from live vendor lists; tests green; README tells the ClaudeBot story |
 | 2 | `plugins/siteread/` (was `skill/`) — Claude Code skill `seo-read`: GSC export + log file (+ beacon rollup) → weekly memo | Produces a memo in the Synacl Measurement-log shape from a stranger's inputs without editing the skill |
 | 3 | the hosted service (closed source since 2026-10-22) + `site/` — list feed, `share` endpoint, public aggregate page with `n` printed | Synacl is row 1; the page is linkable; `share` round-trips |
-| 4 | The post on synacl.com/guides/ with real numbers, linking the package and the skill | Live, IndexNow'd, posted to dev.to + HN |
+| 4 | The post on siteread.dev/blog with real numbers, linking the package and the skill (moved from synacl.com/guides by the owner 2026-10-23, for this domain's search; synacl.com/guides gets a short note linking to it) | Live, IndexNow'd, posted to dev.to + HN |
 
 Python twin: later, as a thin client of the feed, not a port.
 

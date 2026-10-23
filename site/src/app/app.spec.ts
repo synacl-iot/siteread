@@ -23,7 +23,7 @@ describe('App', () => {
 
   it('has the public header and footer on public pages', async () => {
     const el = await at('/benchmark');
-    expect([...el.querySelectorAll('.site-nav a')].map(a => a.textContent)).toEqual(['Benchmark', 'Docs', 'Privacy', 'npm']);
+    expect([...el.querySelectorAll('.site-nav a')].map(a => a.textContent)).toEqual(['Benchmark', 'Docs', 'Blog', 'Privacy', 'npm']);
     expect(el.querySelector('.site-footer')!.textContent).toContain('MIT licensed');
   });
 

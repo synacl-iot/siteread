@@ -4,6 +4,9 @@ import { BenchmarkPage, benchmarkResolver } from './pages/benchmark';
 import { Docs } from './pages/docs';
 import { Privacy } from './pages/privacy';
 import { NotFound } from './pages/not-found';
+import { Blog } from './pages/blog';
+import { PostLaunch } from './pages/post-launch';
+import { LAUNCH } from './pages/posts';
 
 export const routes: Routes = [
   { path: '', component: Home, title: 'siteread: who read your site this week' },
@@ -13,6 +16,8 @@ export const routes: Routes = [
   },
   { path: 'docs', component: Docs, title: 'Docs · siteread' },
   { path: 'privacy', component: Privacy, title: 'What siteread sends · siteread' },
+  { path: 'blog', component: Blog, title: 'Blog · siteread' },
+  { path: `blog/${LAUNCH.slug}`, component: PostLaunch, title: `${LAUNCH.title} · siteread` },
   // Lazy: most visitors never need the account pages. Not linked from the navigation yet.
   { path: 'account', loadComponent: () => import('./pages/account').then(m => m.AccountPage), title: 'Your account · siteread' },
   { path: 'account/verify', loadComponent: () => import('./pages/account-verify').then(m => m.AccountVerify), title: 'Signing in · siteread' },
