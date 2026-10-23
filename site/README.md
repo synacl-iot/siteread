@@ -27,6 +27,7 @@ private repo) sends each path its file with the headers below, and the bundles t
 | `/blog`, `/blog/<slug>` | `blog/index.html`, `blog/<slug>/index.html` | `no-cache` | one entry per post in `src/app/pages/posts.ts`, with its own canonical and Open Graph tags (`src/app/seo.ts`); add each post to `public/sitemap.xml` too |
 | `/benchmark` | `benchmark/index.html` | `no-cache` | holds the numbers as of the build, stamped `built <time>`; once running, the browser fetches `api.siteread.dev/v1/benchmark.json` and shows the live numbers over them. A build that cannot reach the service still succeeds, and the page says the service did not answer until the live fetch does |
 | `/account`, `/account/verify` | `index.csr.html` | `no-store`, `noindex` | sign in by an emailed link (its code after `#`, so in no log), then the plan, an API key and linked share ids; the session in localStorage, never the email; disallowed in `robots.txt`, not linked from the navigation yet |
+| `/d53641fcf1daa066fc2634e51ab6ac04.txt` | `d53641fcf1daa066fc2634e51ab6ac04.txt` (`public/`) | default | the IndexNow key: a ping to `api.indexnow.org` names it, and the engines fetch it to check the ping came from this site. Public by design |
 | anything else that is not a file | `index.csr.html` | 404 | the shell, which shows the not-found page |
 
 The benchmark snapshot is only as fresh as the last deploy, for readers without JavaScript; a
