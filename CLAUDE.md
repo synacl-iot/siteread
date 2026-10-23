@@ -24,7 +24,7 @@ cap is spent, stop and say so.
   placeholder are the owner's publishes. The name `siteread` and the domain are final; further names stay the owner's call.
 - Deploys: merge here, then pin this repo's `main` as the `public` submodule in the private repo and ship from there
   (build on the owner's machine, ship `dist/`). Merging a PR needs the owner's word "merge"; deploying needs "deploy".
-- Server-side work, billing and plans are tracked in the private repo's `docs/HANDOFF.md`, with dated session
+- Server-side work and plans are tracked in the private repo's `docs/HANDOFF.md`, with dated session
   archives in its `docs/archives/`. Read it first when the work touches the service.
 - Open on this repo's side (2026-10-24):
   - Mon 2026-10-26: run the `seo-read` skill on real data next to the owner's own Monday SEO review and compare the
