@@ -12,6 +12,8 @@ export interface PageMeta {
   type?: 'website' | 'article';
   /** For an article: `YYYY-MM-DD`. */
   published?: string;
+  /** A 1200×630 preview image under `public/`, from the root: `/og/post.png`. */
+  image?: { path: string; alt: string };
 }
 
 /**
@@ -32,10 +34,16 @@ export function pageMeta(m: PageMeta): void {
     'og:url': url,
   };
   if (m.published) og['article:published_time'] = m.published;
+  if (m.image) {
+    og['og:image'] = ORIGIN + m.image.path;
+    og['og:image:width'] = '1200';
+    og['og:image:height'] = '630';
+    og['og:image:alt'] = m.image.alt;
+  }
 
   meta.updateTag({ name: 'description', content: m.description });
   for (const [property, content] of Object.entries(og)) meta.updateTag({ property, content });
-  meta.updateTag({ name: 'twitter:card', content: 'summary' });
+  meta.updateTag({ name: 'twitter:card', content: m.image ? 'summary_large_image' : 'summary' });
 
   let link = doc.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
   if (!link) {

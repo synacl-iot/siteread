@@ -29,6 +29,8 @@ describe('the blog', () => {
     expect(og('og:type')).toBe('article');
     expect(og('og:title')).toBe(LAUNCH.title);
     expect(og('article:published_time')).toBe(LAUNCH.date);
+    expect(og('og:image')).toBe('https://siteread.dev/og/introducing-siteread.png');
+    expect(head().querySelector('meta[name="twitter:card"]')!.getAttribute('content')).toBe('summary_large_image');
     expect((fixture.nativeElement as HTMLElement).querySelector('h1')!.textContent).toBe(LAUNCH.title);
 
     fixture.destroy();

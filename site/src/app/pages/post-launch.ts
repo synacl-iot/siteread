@@ -21,6 +21,7 @@ export class PostLaunch {
       path: `/blog/${LAUNCH.slug}`,
       type: 'article',
       published: LAUNCH.date,
+      image: LAUNCH.image,
     });
   }
 }
