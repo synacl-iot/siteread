@@ -1,0 +1,76 @@
+<main class="wrap page tight post">
+
+  <header class="stack post-head">
+    <p class="eyebrow"><a routerLink="/blog">Blog</a></p>
+    <h1 class="display h1 small">{{ post.title }}</h1>
+    <p class="mono note">{{ post.byline }} · <time [attr.datetime]="post.date">{{ post.date }}</time></p>
+    <p class="lede">Every Monday we asked the same three things about one small site: who read it last week, was that good, and what should we write next. The answers were in files we already had. Reading them honestly took more care than we expected, and siteread is what that care turned into.</p>
+  </header>
+
+  <article class="prose post-body">
+
+    <h2 class="display h2 small">It started as a Monday read</h2>
+    <p>The site is a small company's: product pages and a handful of guides. Every Monday we pulled a Search Console export and the server's nginx log and wrote a dated entry in a measurement log: what moved, who came from where, and two to four things to do next. Then we started asking the question everyone with a content site is asking now: are AI assistants reading us, and does it bring anyone?</p>
+    <p>The log seemed to say yes, plenty. Counting user-agents gave us a healthy stream of ChatGPT-User, PerplexityBot, ClaudeBot, DeepSeekBot and friends. Then we looked at who was behind them.</p>
+
+    <h2 class="display h2 small">Scanners wear AI user-agents</h2>
+    <p>In 30 days of that log, to 2026-10-16, 217 of the 221 ChatGPT-User requests from outside OpenAI's published IP list came from addresses that also probed for scanner paths: <code>/.env</code>, <code>wp-login.php</code> and the rest, which our nginx answers with a 444, a closed connection. Every request claiming to be DeepSeekBot, CCBot, Grok, Perplexity-User or Claude-SearchBot was fake. A user-agent count was a count of what scanners chose to say that week.</p>
+    <p>Most AI vendors publish the IP ranges their crawlers use: OpenAI, Anthropic, Perplexity, Apple, Google and Bing all do. A request that claims to be one of their agents and comes from outside that list is not theirs. So the first tool was a checker:</p>
+    <pre>$ npx siteread check 203.0.113.9 "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot"
+spoofed   203.0.113.9 claims chatgpt-user (chatgpt, answer) but is not in openai.com/chatgpt-user.json (234 prefixes)</pre>
+
+    <h2 class="display h2 small">The rule of thumb that called a real ClaudeBot fake</h2>
+    <p>Before we used the vendor lists, our test was simpler: an IP that ever hit a scanner path is a scanner. It worked until ClaudeBot read a GitHub README that linked to the site with relative links, resolved them against our domain, and asked for <code>/protocol//blob/master/examples/docker-compose.yml</code>. That drew one 444, and all 50 of that IP's reads that day were counted as spoofed.</p>
+    <p>The real ClaudeBot followed a bad link once and lost a day of credit. Meanwhile, in the same 30 days, every ClaudeBot IP and every page-reading Claude-User IP was in Anthropic's published list, and the four IPs probing <code>/.env</code>-style paths under Claude names were not. So siteread has one rule: where a vendor list exists, the list decides. The scanner-path test only ever applies to agents whose operator publishes nothing, and even then it can only turn an "unknown" into a "spoofed".</p>
+    <p>Two more things the log taught us, both now in the code:</p>
+    <ul>
+      <li><strong>Claude Code is not Anthropic's crawler.</strong> Its WebFetch sends <code>Claude-User (claude-code/…)</code> from the user's own machine and IP, so no list can cover it. siteread says "unknown" rather than guess.</li>
+      <li><strong>Google-Extended is not a user-agent.</strong> It is a robots.txt token that Google's crawlers obey while fetching as Googlebot. A request that sends it as a user-agent is not from Google.</li>
+    </ul>
+
+    <h2 class="display h2 small">From a checker to a weekly read</h2>
+    <p>Verified crawler counts were one column of the Monday entry. The rest came from the same two files, so we made the whole read repeatable. <code>siteread digest</code> takes a Search Console export (the zip from Performance, Export) and your access logs (nginx or Apache combined, Caddy's JSON, or an nginx JSON format) and prints one JSON document:</p>
+    <ul>
+      <li>Search Console weeks, with position weighted by impressions so one lucky query does not swing the average;</li>
+      <li>people, counted as an address with a browser user-agent that loaded an asset and never probed a scanner path, by where their first visit came from, such as search, an AI assistant or social;</li>
+      <li>every AI agent and search crawler, checked against its vendor's list, with what it read;</li>
+      <li>goals you name, such as a signup.</li>
+    </ul>
+    <p>Then the <code>seo-read</code> skill for Claude Code reads that JSON and writes the week up as a dated memo in <code>siteread-log.md</code>, the same shape as our measurement log: what changed, who came from where, which crawler read what, and two to four things to do next. The numbers come from the digest; Claude only writes the prose around them. You can see a whole memo on the <a routerLink="/">home page</a>.</p>
+
+    <h2 class="display h2 small">It runs on your machine</h2>
+    <p>Your log holds your visitors' IP addresses and every URL on your site, so none of that leaves your machine. The CLI is Node 20 or later with zero dependencies. The only requests it makes are plain GETs of the public crawler lists, by default from one merged file at api.siteread.dev, one request instead of nine, and from the vendors themselves when that fails or when you pass <code>--no-feed</code>. There is no reverse-DNS check either, because a PTR lookup would send your visitor's IP to your resolver. <a routerLink="/privacy">The privacy page</a> has the details.</p>
+
+    <h2 class="display h2 small">How does your site compare?</h2>
+    <p>One week of numbers tells you little on its own. Is 3 % of visitors arriving from AI assistants a lot? Is a third of your AI traffic being spoofed normal? Nobody publishes those numbers for small sites, so we started <a routerLink="/benchmark">a benchmark</a>.</p>
+    <p><code>siteread share</code> sends one week of totals: thirteen numbers, a week label, the version and a random id. It prints every byte before it sends anything and asks first; <code>--dry-run</code> prints and stops. Never a hostname, a URL or an IP. What comes back is where each of your numbers stands among the published quartiles.</p>
+    <p>The benchmark starts empty and says so. A metric shows its 25th, 50th and 75th percentile only once 10 anonymous sites report it, because with fewer, a published median could give away another site's exact number. Until then each row shows how many sites report it. Two sites are named, with their own numbers from week one, because their owner chose that: siteread.dev, which reads its own access log, and the site this all started on. Small and dated beats big and vague.</p>
+
+    <h2 class="display h2 small">Try it</h2>
+    <p>Check one request from your log:</p>
+    <div class="row post-cmd">
+      <code class="cmd">{{ check }}</code>&ngsp;
+      <app-copy [text]="check" />
+    </div>
+    <p>Build a week's digest:</p>
+    <pre>npx siteread digest --gsc export.zip --log access.log --out .siteread/digests</pre>
+    <p>Install the plugin with the <code>seo-read</code> skill, then ask Claude Code for "my weekly seo read" in the folder that holds your export and logs:</p>
+    <pre>{{ plugin }}</pre>
+    <p>See what a share would send, without sending it:</p>
+    <pre>npx siteread share --dry-run</pre>
+    <p>Every command and option is in <a routerLink="/docs">the docs</a>. siteread is MIT licensed and <a href="https://github.com/synacl-iot/siteread">the source is on GitHub</a>; issues with a log line it got wrong are the most useful thing you can send us.</p>
+
+    <h2 class="display h2 small">What it is not</h2>
+    <p>It does not track whether ChatGPT mentions your brand; other tools ask the assistants. It does not block crawlers; your CDN can. And it is not a dashboard: the output is a memo you read once a week, then close.</p>
+
+  </article>
+
+  <section class="row between cta">
+    <div class="stack cta-text">
+      <h2 class="display h2 small">Share a week, see where you stand</h2>
+      <p class="muted">Anonymous totals only, printed before they are sent. The count of sites is on every row.</p>
+    </div>
+    <a routerLink="/benchmark" class="btn primary">Open the benchmark</a>
+  </section>
+
+</main>
