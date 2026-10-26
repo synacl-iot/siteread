@@ -55,7 +55,10 @@ Digest options (at least one of --gsc / --log):
   --goal <label=regex>   count people whose "METHOD /path status" matches (repeatable),
                          e.g. --goal 'signup=^POST /signup 2'
   --team-path <regex>    an IP that got a 2xx on such a path is your team, not a reader
-  --exclude-ip <ip,...>  more IPs that are you (repeatable)
+  --team-host <name>     an IP that got a 2xx from this host (your admin or app host, in the
+                         same log) is your team, not a reader (repeatable; JSON logs only)
+  --exclude-ip <ip,...>  more IPs that are you (repeatable). Not a mobile carrier, VPN or
+                         iCloud Private Relay address: strangers share those and are dropped too
   --allow-path <regex>   your real paths that look like scanner probes (/install.sh)
   --tz <zone>            zone for log days (default America/Los_Angeles, GSC's)
   --prev <digest.json>   an earlier digest: GSC rows gain last read's numbers
@@ -83,7 +86,7 @@ Nothing leaves this machine except GETs of public crawler lists (the siteread fe
 
 // Options that take a value (digest only). Each keeps every value given, in order.
 const VALUE_OPTS = new Set(['--gsc', '--log', '--out', '--site', '--sitemap', '--from', '--to', '--split', '--goal',
-    '--team-path', '--exclude-ip', '--allow-path', '--tz', '--prev', '--limit', '--endpoint', '--id-file', '--host']);
+    '--team-path', '--team-host', '--exclude-ip', '--allow-path', '--tz', '--prev', '--limit', '--endpoint', '--id-file', '--host']);
 
 function parseArgs(argv) {
     const flags = new Set();
@@ -251,6 +254,7 @@ async function cmdDigest({ flags, opts, pos }) {
         teamPath: re('--team-path'), allowPath: re('--allow-path'),
         excludeIps: new Set((opts.get('--exclude-ip') ?? []).flatMap(s => s.split(',')).map(s => s.trim()).filter(Boolean)),
         hosts: opts.get('--host') ?? [],
+        teamHosts: opts.get('--team-host') ?? [],
     });
     if (verifier) out.vendorLists = verifier.lists().map(({ agent, prefixes, fetchedAt }) => ({ agent, prefixes, fetchedAt }));
     for (const w of out.warnings) process.stderr.write(`siteread: ${w}\n`);
@@ -262,7 +266,9 @@ async function cmdDigest({ flags, opts, pos }) {
     // Named for the last day the read covers, which is only known now (GSC's lag is cut first).
     const name = `${out.gsc?.range.to ?? out.log?.range.to ?? 'empty'}.json`;
     mkdirSync(dir, { recursive: true });
-    if (!prev && gsc) {
+    if (prev) {
+        out.prevFile = one('--prev');
+    } else if (gsc) {
         const earlier = readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f) && f < name).sort().at(-1);
         if (earlier) {
             const file = path.join(dir, earlier);

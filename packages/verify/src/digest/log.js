@@ -168,12 +168,17 @@ function top(map, limit) {
  * @param {RegExp} [o.allowPath]    a site's own paths that look like scanner probes
  * @param {string[]} [o.hosts]      keep only requests to these hosts (a log of several sites);
  *                                  a line whose format carries no host is kept and counted
+ * @param {string[]} [o.teamHosts]  an IP that got a 2xx from one of these hosts (your admin or app
+ *                                  host, in the same log) is your team; read before `hosts` cuts it
  */
 export function createLogDigest({
     site = null, tz = 'America/Los_Angeles', from = null, to = null, sitemap = null,
-    goals = [], teamPath = null, excludeIps = new Set(), allowPath = null, limit = 15, hosts = [],
+    goals = [], teamPath = null, excludeIps = new Set(), allowPath = null, limit = 15, hosts = [], teamHosts = [],
 } = {}) {
     const keepHosts = hosts.length ? new Set(hosts.map(normHost)) : null;
+    // One site's team used only its admin app, on another host: --team-path could never see them,
+    // so they were found by hand (IPs with 20+ admin loads) and passed as --exclude-ip.
+    const teamHostSet = teamHosts.length ? new Set(teamHosts.map(normHost)) : null;
     const day = dayIn(tz);
     const ips = new Map();       // ip → per-IP facts
     const crawl = new Map();     // `${agent}\t${ip}` → { agent, ip, ua, requests, pages: Map(day → [path]) }
@@ -195,6 +200,10 @@ export function createLogDigest({
         lines++;
         const q = parseLine(line);
         if (!q) { unparsed++; return; }
+        if (teamHostSet && q.host != null && teamHostSet.has(normHost(q.host))) {
+            if (q.status >= 200 && q.status < 300) ipRec(q.ip).team = true;
+            if (!keepHosts || !keepHosts.has(normHost(q.host))) { otherHost++; return; }
+        }
         if (keepHosts) {
             if (q.host == null) noHost++;
             else if (!keepHosts.has(normHost(q.host))) { otherHost++; return; }
@@ -295,11 +304,15 @@ export function createLogDigest({
             }
         }
 
-        // People per 7-day bucket ending on the last day: unique IPs within each bucket.
+        // Per 7-day bucket ending on the last day. `people`: unique IPs with a page view in the
+        // bucket, returning readers included. `firstArrivals`: people whose FIRST page view in the
+        // whole log falls in it, the count `sources` splits up. A memo that put one beside the
+        // other's week-before number read 325 as growth when first arrivals were 276.
         const weeks = [];
         if (lastDay) {
             const end = Date.parse(`${lastDay}T00:00:00Z`);
             const buckets = new Map();
+            const firstBuckets = new Map();
             const goalBuckets = new Map();
             const weekOf = d => Math.floor((end - Date.parse(`${d}T00:00:00Z`)) / (7 * 86_400_000));
             for (const p of people) {
@@ -310,6 +323,7 @@ export function createLogDigest({
                 }
                 // A goal belongs to the week of the person's first page view in the log.
                 const w = weekOf(p.land.day);
+                countBy(firstBuckets, w);
                 if (!goalBuckets.has(w)) goalBuckets.set(w, new Map());
                 for (const g of p.goals) countBy(goalBuckets.get(w), g);
             }
@@ -319,6 +333,7 @@ export function createLogDigest({
                 const gb = goalBuckets.get(w);
                 weeks.push({
                     from: lo < firstDay ? firstDay : lo, to: iso(end - 7 * w * 86_400_000), people: buckets.get(w).size,
+                    firstArrivals: firstBuckets.get(w) ?? 0,
                     goals: Object.fromEntries(goals.map(g => [g.label, gb?.get(g.label) ?? 0])),
                 });
             }

@@ -48,7 +48,8 @@ const CLOCK_SKEW_MS = 5 * 60_000;
 const CLAUDE_BOTS = 'https://claude.com/crawling/bots.json';
 
 // Agent key (agents.js AGENTS / CRAWLERS) → its vendor's published list. Every URL answers
-// { creationTime, prefixes: [{ ipv4Prefix } | { ipv6Prefix }] } (all checked 2026-10-21).
+// { creationTime, prefixes: [{ ipv4Prefix } | { ipv6Prefix }] } (checked 2026-10-21;
+// DuckDuckGo and Mistral added 2026-10-26).
 // The hosted feed (api.siteread.dev): every list above in one document, refetched from the vendors every
 // 6 h. The CLI reads it by default (the charter: the feed is opt-out); the library does not, and
 // the hosted service's feed job must not, since it is what builds the feed.
@@ -65,9 +66,16 @@ export const SOURCES = Object.freeze([
     { agent: 'claude-user',      url: CLAUDE_BOTS },
     { agent: 'claude-searchbot', url: CLAUDE_BOTS },
     { agent: 'claudebot',        url: CLAUDE_BOTS },
+    // DuckDuckGo serves one set of /32s at both URLs (identical on 2026-10-26); kept as two
+    // entries so each agent keeps its own URL if they ever split.
+    { agent: 'duckassistbot',    url: 'https://duckduckgo.com/duckassistbot.json' },
+    { agent: 'mistralai-user',   url: 'https://mistral.ai/mistralai-user-ips.json' },
+    // Named on commoncrawl.org/ccbot as the JSON copy of its v4 + v6 ranges (2026-10-26).
+    { agent: 'ccbot',            url: 'https://index.commoncrawl.org/ccbot.json' },
     // Classic search. googlebot.json covers Googlebot and its -Image/-News/-Video variants.
     { agent: 'googlebot',        url: 'https://developers.google.com/static/search/apis/ipranges/googlebot.json' },
     { agent: 'bingbot',          url: 'https://www.bing.com/toolbox/bingbot.json' },
+    { agent: 'duckduckbot',      url: 'https://duckduckgo.com/duckduckbot.json' },
 ].map(Object.freeze));
 
 /** 'a.b.c.d/n' or 'x::/n' → { type, net, prefix, cidr } (normalised), or null; MIN_PREFIX applies. */

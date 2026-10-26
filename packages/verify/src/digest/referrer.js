@@ -12,6 +12,11 @@ const SOURCES = [
     ['gemini', 'ai', /^gemini\.google\.com$/],
     ['copilot', 'ai', /^copilot\.microsoft\.com$/],
     ['deepseek', 'ai', /(^|\.)deepseek\.com$/],
+    // Duck.ai is DuckDuckGo's chat, not its search: a click from it is an assistant's answer.
+    ['duckai', 'ai', /^duck\.ai$/],
+    ['mistral', 'ai', /^chat\.mistral\.ai$/],
+    ['grok', 'ai', /^grok\.com$/],
+    ['meta-ai', 'ai', /(^|\.)meta\.ai$/],
     ['google', 'search', /(^|\.)google\.[a-z.]+$/],
     ['bing', 'search', /(^|\.)bing\.com$/],
     ['duckduckgo', 'search', /(^|\.)duckduckgo\.com$/],
@@ -37,7 +42,7 @@ const SOURCES = [
 const UTM = new Map([
     ['chatgpt.com', 'chatgpt'], ['chatgpt', 'chatgpt'], ['openai', 'chatgpt'],
     ['perplexity', 'perplexity'], ['perplexity.ai', 'perplexity'], ['claude.ai', 'claude'], ['claude', 'claude'],
-    ['copilot.com', 'copilot'], ['gemini', 'gemini'], ['reddit', 'reddit'], ['hn', 'hackernews'],
+    ['copilot.com', 'copilot'], ['duck.ai', 'duckai'], ['grok.com', 'grok'], ['gemini', 'gemini'], ['reddit', 'reddit'], ['hn', 'hackernews'],
     ['news.ycombinator.com', 'hackernews'], ['twitter', 'x'], ['x', 'x'], ['linkedin', 'linkedin'],
     ['devto', 'dev.to'], ['dev.to', 'dev.to'], ['newsletter', 'newsletter'], ['email', 'email'],
 ]);
