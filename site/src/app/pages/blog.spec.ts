@@ -3,7 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Blog } from './blog';
 import { PostLaunch } from './post-launch';
-import { LAUNCH } from './posts';
+import { PostChatgptWeek } from './post-chatgpt-week';
+import { CHATGPT_WEEK, LAUNCH } from './posts';
 
 describe('the blog', () => {
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideRouter([])] }));
@@ -11,12 +12,22 @@ describe('the blog', () => {
   const head = () => TestBed.inject(DOCUMENT).head;
   const og = (property: string) => head().querySelector(`meta[property="${property}"]`)?.getAttribute('content');
 
-  it('lists the launch post', () => {
+  it('lists the posts, newest first', () => {
     const fixture = TestBed.createComponent(Blog);
     fixture.detectChanges();
-    const link = (fixture.nativeElement as HTMLElement).querySelector('.post-list a')!;
-    expect(link.textContent).toBe(LAUNCH.title);
-    expect(link.getAttribute('href')).toBe(`/blog/${LAUNCH.slug}`);
+    const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.post-list a')];
+    expect(links.map(a => a.getAttribute('href'))).toEqual([`/blog/${CHATGPT_WEEK.slug}`, `/blog/${LAUNCH.slug}`]);
+    expect(links[1].textContent).toBe(LAUNCH.title);
+  });
+
+  it('gives the ChatGPT post its own canonical and title, and names no plan or price', () => {
+    const fixture = TestBed.createComponent(PostChatgptWeek);
+    fixture.detectChanges();
+    expect(head().querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe(`https://siteread.dev/blog/${CHATGPT_WEEK.slug}`);
+    expect(og('article:published_time')).toBe(CHATGPT_WEEK.date);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('h1')!.textContent).toBe(CHATGPT_WEEK.title);
+    expect(el.textContent!).not.toMatch(/[$€£]\s?\d|pricing|\bS[12]\b|paid plan|per month/i);
   });
 
   it('gives the post its canonical, description and preview tags, and takes them away on leaving', () => {

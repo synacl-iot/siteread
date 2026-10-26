@@ -1,0 +1,72 @@
+<main class="wrap page tight post">
+
+  <header class="stack post-head">
+    <p class="eyebrow"><a routerLink="/blog">Blog</a></p>
+    <h1 class="display h1 small">{{ post.title }}</h1>
+    <p class="mono note">{{ post.byline }} · <time [attr.datetime]="post.date">{{ post.date }}</time></p>
+    <p class="lede">The site behind <a routerLink="/blog/introducing-siteread">the launch post</a> is synacl.com, a small IoT company's site with product pages, guides and a few browser tools. This Monday we ran the released siteread on it for the first time, next to the script it came from. One number stood out, and most of this post is about how far it can be trusted.</p>
+  </header>
+
+  <article class="prose post-body">
+
+    <h2 class="display h2 small">The number</h2>
+    <p>People whose first visit came from ChatGPT: <strong>3</strong> in the week of 10-10 to 10-16, <strong>23</strong> in the week of 10-17 to 10-23. Over 28 days, 45. They landed on the tools more than the articles: the ESP32 web flasher (13), the Modbus RTU tool (13), the ESP32 info tool (6) and the serial monitor (5).</p>
+    <p>The same two weeks, from other sources:</p>
+    <table>
+      <thead><tr><th>First arrivals</th><th>10-10 → 10-16</th><th>10-17 → 10-23</th></tr></thead>
+      <tbody>
+        <tr><td>direct</td><td>142</td><td>162</td></tr>
+        <tr><td>Google</td><td>30</td><td>49</td></tr>
+        <tr><td>Reddit</td><td>17</td><td>28</td></tr>
+        <tr><td>ChatGPT</td><td>3</td><td>23</td></tr>
+        <tr><td>Gemini</td><td>1</td><td>4</td></tr>
+        <tr><td>Brave Search</td><td>0</td><td>3</td></tr>
+      </tbody>
+    </table>
+    <p>Twenty-three people is a small number. It is one week, and one week can be one Reddit thread or one answer ChatGPT happened to give a lot that week. What we can say is that it is not the whole site rising: Google and Reddit grew by about two thirds and direct by a seventh, while ChatGPT grew sevenfold.</p>
+
+    <h2 class="display h2 small">Search Console saw none of it</h2>
+    <p>Search Console reported 114 clicks over the same 28 days. The log counted 117 people arriving from Google. That match is the reason we trust the log's other rows: the rule that decides who is a person (a browser that loaded a stylesheet, never probed for <code>/.env</code>, not a cloud address faking a Google Referer) sees the same readers Google does.</p>
+    <p>ChatGPT's visitors are not in Search Console at all. Most of them send no Referer either. They show up because ChatGPT tags its links <code>?utm_source=chatgpt.com</code>, and siteread reads that tag before the Referer. Without it, those 23 people would have been filed under "direct".</p>
+
+    <h2 class="display h2 small">The crawler side moved too</h2>
+    <p>Verified fetches of sitemap URLs per week, four weeks to 10-23, counting only IPs inside each vendor's published list:</p>
+    <table>
+      <thead><tr><th>Agent</th><th>Weeks 1 → 4</th></tr></thead>
+      <tbody>
+        <tr><td>OAI-SearchBot (ChatGPT's search index)</td><td>74 · 57 · 99 · 188</td></tr>
+        <tr><td>ChatGPT-User (fetched while answering someone)</td><td>114 · 125 · 77 · 84</td></tr>
+        <tr><td>bingbot</td><td>29 · 24 · 94 · 143</td></tr>
+        <tr><td>Googlebot</td><td>79 · 73 · 55 · 65</td></tr>
+        <tr><td>PerplexityBot</td><td>9 · 265 · 83 · 98</td></tr>
+      </tbody>
+    </table>
+    <p>OAI-SearchBot more than doubled its fetches in the same week ChatGPT's visitors went from 3 to 23, and bingbot rose too. That is a timing fact, not a cause: we cannot see inside either index. But it is the first week where the crawl and the visits moved together, and it is the kind of thing a weekly read exists to notice.</p>
+    <p>The fakes are still there. In the same 28 days, requests wearing a Googlebot user-agent from outside Google's list: 28. ChatGPT-User: 25. ClaudeBot: 12. Counting user-agents would have added them all to the totals above.</p>
+
+    <h2 class="display h2 small">What the first real run found wrong in siteread</h2>
+    <p>Running the tool and our old script on the same log gave the same answers to within a few people: Google 117 against 122, ChatGPT 45 against 46, every goal equal. The old script had one bug siteread did not: it took the flasher's own JavaScript, served from a <code>/assets/vendor/</code> path, for a scanner probe and dropped every person who used the flasher.</p>
+    <p>siteread had bugs of its own, fixed in 0.3.0 the same morning:</p>
+    <ul>
+      <li>Search Console lists a jump link (<code>/guide/#step-2</code>) as its own page row. siteread summed it into the page, and one guide read 568 impressions where Search Console said 539. Fragment rows now stay as Search Console gives them.</li>
+      <li>DuckAssistBot, DuckDuckBot, MistralAI-User and CCBot publish IP lists; siteread now checks against them instead of calling them unverified.</li>
+      <li>A click from <code>duck.ai</code>, DuckDuckGo's chat, was counted as a referral. It is an assistant's answer, and now counts as AI, as do Mistral's, Grok's and Meta AI's chats.</li>
+      <li>The weekly "people" number includes returning readers; the per-source numbers are first arrivals. Both are now in the digest, labelled, so a memo never sets one against the other.</li>
+      <li>The site's team uses an admin app on another host, which <code>--team-path</code> cannot see. <code>--team-host</code> marks anyone who used that host as team. Excluding the team by IP had been the fallback, and it was dropping strangers: some of those addresses looked like a mobile carrier's shared ones and iCloud Private Relay's, which many people use at once.</li>
+    </ul>
+
+    <h2 class="display h2 small">What we will watch</h2>
+    <p>Whether 23 holds next week. If ChatGPT keeps sending people to the tools, the tools are what to build more of; if it falls back to 3, this post is the record that it happened once. Either way the number goes in the log, dated, next to the crawl that came with it.</p>
+    <p>siteread 0.3.0 is on npm. <a routerLink="/docs">The docs</a> have every command; the weekly memo comes from the <code>seo-read</code> skill in its Claude Code plugin.</p>
+
+  </article>
+
+  <section class="row between cta">
+    <div class="stack cta-text">
+      <h2 class="display h2 small">Read your own week</h2>
+      <p class="muted">Your Search Console export and access log, read on your machine. Nothing leaves it except a share you approve.</p>
+    </div>
+    <a routerLink="/docs" class="btn primary">Open the docs</a>
+  </section>
+
+</main>
