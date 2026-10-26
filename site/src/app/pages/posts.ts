@@ -22,4 +22,12 @@ export const LAUNCH: Post = {
   },
 };
 
-export const POSTS: Post[] = [LAUNCH];
+export const CHATGPT_WEEK: Post = {
+  slug: 'chatgpt-3-to-23',
+  title: 'ChatGPT sent us 3 people one week and 23 the next. What the log can and cannot say about that',
+  description: 'The first real siteread run on synacl.com: ChatGPT went from 3 first arrivals to 23 in a week, OpenAI’s search crawler doubled its fetches, and Search Console saw none of it. The numbers, the caveats, and what changed in siteread 0.3.0.',
+  date: '2026-10-26',
+  byline: 'Darshil',
+};
+
+export const POSTS: Post[] = [CHATGPT_WEEK, LAUNCH];

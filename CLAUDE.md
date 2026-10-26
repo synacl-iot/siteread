@@ -57,7 +57,8 @@ cap is spent, stop and say so.
 - Node ≥ 20, ESM, zero runtime dependencies in `packages/verify`. Tests with `node:test`, never jest.
 - Nothing here imports from or writes to `../iotoneweb`. Port by copying; Synacl keeps its copies. Never say where
   code came from: no "ported from" credits in code, READMEs, package metadata or the charter (owner, 2026-10-21).
-  A measured story names "one site", not synacl.com.
+  A measured story in code, READMEs and commits names "one site", not synacl.com. Blog posts may name synacl.com
+  with its numbers (owner, 2026-10-26).
 - Never send hostnames, URLs or visitor IPs anywhere. `share` prints the exact payload before sending.
 - On the VM, only `siteread.dev` keeps an access log (28 days, the owner's call); `api.siteread.dev` and `www` never
   log, and no error log may carry a client address (Caddy's `http` loggers stay excluded). The private repo's `cloud/HOSTING.md` has why.
@@ -66,5 +67,6 @@ cap is spent, stop and say so.
   the hosted feed job relies on.
 - Keep the WHY comments: they are the product knowledge (the 444 rule, the ClaudeBot
   README-link incident, Claude-User from claude-code being the user's own IP, Google-Extended never being a UA).
-- No Synacl branding in this repo. Synacl appears only as the first honest data row and in the post's byline.
+- No Synacl branding in this repo. Synacl appears only as the first honest data row, in a post's byline, and as
+  the measured site a blog post names (owner, 2026-10-26).
   The GitHub home is `synacl-iot/siteread` (origin): the org is the maker, which is not branding.
