@@ -25,7 +25,7 @@ one message.
 | Hosts in the log | a JSON log that holds several sites (an API, an app, other domains on the same server) | if the log's lines carry a host, ask which are this site's and pass each as `--host` (`www.` is a different host); otherwise their traffic counts as this site's |
 | Sitemap | a local copy of `sitemap.xml` | optional; without it crawler counts include every page fetch |
 | Goals | what a reader *doing something* looks like in the log, e.g. a signup `POST /signup` 201 | optional; ask once |
-| Team paths / IPs | the owner's own admin paths or IPs, so the team isn't counted as readers | optional; ask once |
+| Team | how to tell the owner's team from readers: an admin path on this site (`--team-path`), or an admin/app host in the same log (`--team-host`) | optional; ask once. Prefer a path or host to IPs (see below) |
 
 If `.siteread/config.json` exists, read it first and ask only for what it lacks. Once the inputs
 are settled, write the answers there so next week needs no questions. Each key is the digest option of the same name; a list means "repeat the option":
@@ -35,14 +35,22 @@ are settled, write the answers there so next week needs no questions. Each key i
   "site": "example.org", "sitemap": "public/sitemap.xml",
   "goals": ["signup=^POST /signup 2", "tool=^POST /api/"],
   "hosts": ["example.org", "www.example.org"],
-  "teamPath": "^/admin/", "excludeIps": [], "allowPath": null }
+  "teamPath": "^/admin/", "teamHosts": [], "excludeIps": [], "allowPath": null }
 ```
 
-`logs` → `--log` each, `hosts` → `--host` each, `goals` → `--goal` each, `teamPath` → `--team-path`, `excludeIps` →
+`logs` → `--log` each, `hosts` → `--host` each, `goals` → `--goal` each, `teamPath` → `--team-path`, `teamHosts` →
+`--team-host` each, `excludeIps` →
 `--exclude-ip` each, `allowPath` → `--allow-path`. The export is new every week, so it is not
 saved: take the newest export zip or folder in the directory, and confirm it if there are several.
 A goal regex is matched against `METHOD /path status`, so "a POST to /signup that returns 2xx" is
 `^POST /signup 2`.
+
+Team by IP is the last resort. Mobile carriers (CGNAT), VPNs and iCloud Private Relay give one
+address to many strangers, so excluding such an IP drops real readers with it. Before saving an
+`excludeIps` entry, look at it: if it belongs to a carrier, VPN or Private Relay range (Apple
+publishes Private Relay's at https://mask-api.icloud.com/egress-ip-ranges.csv), leave it out and say so, and
+offer `--team-host` or `--team-path` instead. `--team-host` needs a log whose lines carry the
+host and that still holds the admin host's lines (filter the log to the site *and* the admin host).
 
 If the log is in none of those formats (the digest warns when most lines don't parse), say so and
 ask the user how their server logs; don't guess a format.
@@ -50,7 +58,7 @@ ask the user how their server logs; don't guess a format.
 ## 2. Run the digest
 
 ```sh
-npx -y siteread@0.2 digest \
+npx -y siteread@0.3 digest \
   --gsc <export.zip> --log <access.log.1.gz> --log <access.log> \
   --site <host> [--host <host> …] --sitemap <sitemap.xml> \
   --goal '<label=regex>' --team-path '<regex>' \
@@ -67,9 +75,9 @@ npx -y siteread@0.2 digest \
   nothing.
 - Warnings go to stderr. Read every one; each belongs in the memo's method notes or changes how
   you read a number.
-- If `siteread` is installed (`siteread --version` prints 0.2.1 or later), `siteread digest …` is the
+- If `siteread` is installed (`siteread --version` prints 0.3.0 or later), `siteread digest …` is the
   same command without npx.
-- Run `npx -y siteread@0.2 --help` for every option. Exit 1 is a usage or input problem: fix it, don't
+- Run `npx -y siteread@0.3 --help` for every option. Exit 1 is a usage or input problem: fix it, don't
   work around it by reading the CSVs yourself.
 
 ## 3. Read the digest
@@ -81,13 +89,18 @@ The JSON has `gsc` and `log` halves (either may be null) and `warnings`. What ea
   `gsc.range.trimmedTrailingDays`.
 - `gsc.countries` / `gsc.devices` don't add up to the totals: GSC drops anonymised rows from
   them. Don't present them as a breakdown of the total.
+- `gsc.pages.rows[]` with a `#fragment` (`/guide/#step-2`) are GSC's own jump-link rows. They
+  are not summed into the page (their impressions overlap with it); name them on their own line.
 - `gsc.namedQueries.shareOfTotal`: the % of impressions the query table names. The rest are
   anonymised. Say this whenever you discuss queries.
 - `gsc.pages|queries|countries.rows[].prev` and `gsc.prevTotals`: last read's numbers (null on
   the first read, and for a row that is new this read).
 - `log.people`: a person is an IP with a browser UA, no scanner path or 444, that loaded an
-  asset. `weeks[]` has unique people and goal counts per 7-day week (a goal counts in the week the
-  person first arrived). Days are US Pacific, like GSC.
+  asset. `weeks[]` has, per 7-day week, `people` (unique people with a page view that week,
+  returning readers included), `firstArrivals` (people whose first page view in the whole log
+  falls in that week, the count `log.sources` splits up) and goal counts (a goal counts in the
+  week the person first arrived). Label which one you quote; never set one beside the other as a
+  change. Days are US Pacific, like GSC.
 - `log.people.setAside`: browsers that were excluded, by reason. `scanners` here is only scanners
   that wore a browser UA; `log.scanners.ips` counts every IP that probed. `cloudFakes` is a cloud
   IP whose first visit claimed a search-engine Referer; `cloudFakeReferers` says which engine.
@@ -128,7 +141,8 @@ comparison. Leave out any section whose input is missing, and say it was missing
 | Clicks | | |
 | CTR | | |
 | Weighted position | | |
-| People (log, unique) | | |
+| People (log, unique, returning included) | | |
+| First arrivals (log) | | |
 | <each goal> (people) | | |
 
 <On the first read (no earlier digest), say so in one line, and the "vs last read" parts below
@@ -183,13 +197,13 @@ and ask which of the recommended next steps they want to take.
 The public benchmark at siteread.dev compares sites by these same weekly numbers. Offer it once
 per read, after the memo; never send without a yes.
 
-1. Run `npx -y siteread@0.2 share --dry-run`. It prints the exact payload it would send (a week
+1. Run `npx -y siteread@0.3 share --dry-run`. It prints the exact payload it would send (a week
    label, the version, a random id and the week's totals: no host, URL, path, IP or query) and
    sends nothing.
 2. Show the user that payload and the CLI's notes (a part with less than a full week is left
    out), and ask whether to send it. If `.siteread/config.json` says `"share": false`, skip this
    step; if the user says never, write that there.
-3. On a yes, run `npx -y siteread@0.2 share --yes` and show its answer: for each number, the
+3. On a yes, run `npx -y siteread@0.3 share --yes` and show its answer: for each number, the
    band it falls in among the benchmark's published quartiles, or how many sites report it so
    far. Add one line to the memo's method notes: "Shared <week> to the siteread benchmark."
 4. The id in `.siteread/share-id` keeps the site one row from week to week; never print it or

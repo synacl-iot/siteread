@@ -20,6 +20,10 @@ const FIXTURE_FOR = {
     'https://claude.com/crawling/bots.json': 'claude-bots',
     'https://developers.google.com/static/search/apis/ipranges/googlebot.json': 'googlebot',
     'https://www.bing.com/toolbox/bingbot.json': 'bingbot',
+    'https://duckduckgo.com/duckassistbot.json': 'duckassistbot',
+    'https://duckduckgo.com/duckduckbot.json': 'duckduckbot',
+    'https://mistral.ai/mistralai-user-ips.json': 'mistralai-user',
+    'https://index.commoncrawl.org/ccbot.json': 'ccbot',
 };
 const CLAUDEBOT = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)';
 

@@ -16,7 +16,7 @@ npx siteread --help         # the CLI, no install
 ## CLI
 
 `check` answers one request. The first call fetches the crawler lists into a cache file; later calls
-reuse a copy younger than 24 h. The lists come from the siteread feed (one GET instead of nine;
+reuse a copy younger than 24 h. The lists come from the siteread feed (one GET instead of thirteen;
 below); `--no-feed` fetches each from its vendor instead, and any list the feed cannot give comes
 from its vendor anyway.
 
@@ -287,6 +287,10 @@ fetching as Googlebot. A request that sends it as a UA is not from Google.
 | claude-user, claude-searchbot, claudebot | https://claude.com/crawling/bots.json (fetched once for all three) |
 | googlebot | https://developers.google.com/static/search/apis/ipranges/googlebot.json |
 | bingbot | https://www.bing.com/toolbox/bingbot.json |
+| duckduckbot | https://duckduckgo.com/duckduckbot.json |
+| duckassistbot | https://duckduckgo.com/duckassistbot.json |
+| mistralai-user | https://mistral.ai/mistralai-user-ips.json |
+| ccbot | https://index.commoncrawl.org/ccbot.json |
 
 All of them answer `{ "creationTime": …, "prefixes": [{ "ipv4Prefix": … } | { "ipv6Prefix": … }] }`.
 

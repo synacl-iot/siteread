@@ -26,6 +26,10 @@ const FIXTURE_FOR = {
     'https://claude.com/crawling/bots.json': 'claude-bots',
     'https://developers.google.com/static/search/apis/ipranges/googlebot.json': 'googlebot',
     'https://www.bing.com/toolbox/bingbot.json': 'bingbot',
+    'https://duckduckgo.com/duckassistbot.json': 'duckassistbot',
+    'https://duckduckgo.com/duckduckbot.json': 'duckduckbot',
+    'https://mistral.ai/mistralai-user-ips.json': 'mistralai-user',
+    'https://index.commoncrawl.org/ccbot.json': 'ccbot',
 };
 
 function listsDoc() {
@@ -148,6 +152,35 @@ test('log: a multi-site nginx JSON log, cut with hosts, reads exactly like the s
     }
 });
 
+test('log: --team-host marks an IP your team when it got a 2xx from your admin host', async (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-teamhost-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    // One reader of the fixture, seen on the admin host the same week: a teammate after all.
+    const text = readFileSync(LOGS[1], 'utf8').split('\n').filter(Boolean);
+    const out = [];
+    let mate = null;
+    for (const line of text) {
+        const q = parseLine(line);
+        if (!q) continue;
+        out.push(JSON.stringify({ time: new Date(q.ts).toISOString(), remote_addr: q.ip, method: q.method, request_uri: q.target,
+            status: q.status, referer: q.referer, user_agent: q.ua, host: 'example.org' }));
+        // 81.2.69.14: the fixture's Google reader on a home address (3.101.5.5 is the cloud fake).
+        if (!mate && q.ip === '81.2.69.14') {
+            mate = q.ip;
+            out.push(JSON.stringify({ time: new Date(q.ts).toISOString(), remote_addr: q.ip, method: 'GET', request_uri: '/dashboard',
+                status: 200, referer: '-', user_agent: q.ua, host: 'admin.example.org' }));
+        }
+    }
+    assert.ok(mate, 'the fixture still has that reader');
+    writeFileSync(join(dir, 'a.log'), out.join('\n') + '\n');
+    const opts = { ...LOG_OPTS, hosts: ['example.org'] };
+    const without = await digest({ logs: [join(dir, 'a.log')], verifier: await fixtureVerifier(), ...opts });
+    const withTeam = await digest({ logs: [join(dir, 'a.log')], verifier: await fixtureVerifier(), ...opts, teamHosts: ['admin.example.org'] });
+    assert.equal(withTeam.log.people.setAside.team, without.log.people.setAside.team + 1);
+    assert.equal(withTeam.log.people.total, without.log.people.total - 1);
+    assert.equal(withTeam.log.lines.otherHost, 1, 'the admin host is never read as the site');
+});
+
 test('log: --host on a format with no host keeps the lines and says so', async () => {
     const d = await digest({ logs: [LOGS[1]], verifier: await fixtureVerifier(), ...LOG_OPTS, hosts: ['example.org'] });
     assert.equal(d.log.lines.otherHost, 0);
@@ -191,6 +224,9 @@ test('classifySource: utm_source beats the Referer, AI before search, internal a
     assert.deepEqual(classifySource('https://www.example.org/a/', '/', { site: 'example.org' }), { source: 'internal', kind: 'internal' });
     assert.deepEqual(classifySource('-', '/'), { source: 'direct', kind: 'direct' });
     assert.deepEqual(classifySource('https://blog.someone.dev/post', '/'), { source: 'blog.someone.dev', kind: 'referral' });
+    // DuckDuckGo's chat is an assistant, not its search; it read as a referral before 0.3.0.
+    assert.deepEqual(classifySource('https://duck.ai/', '/'), { source: 'duckai', kind: 'ai' });
+    assert.deepEqual(classifySource('https://duckduckgo.com/', '/'), { source: 'duckduckgo', kind: 'search' });
     assert.deepEqual(classifySource('-', '/?utm_source=Newsletter'), { source: 'newsletter', kind: 'campaign' });
 });
 
@@ -221,6 +257,18 @@ test('gsc: pages merged by path (www + apex), queries named share', async () => 
     assert.equal(gsc.queries.rows[0].key, 'widget alternatives');
     assert.equal(gsc.queries.rows[2].key, 'how to build a widget, fast');
     assert.equal(gsc.devices.rows.length, 2);
+});
+
+test('gsc: a #fragment row stays its own row, as GSC gives it, not summed into its page', async (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-frag-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    for (const f of ['Dates.csv', 'Queries.csv', 'Pages.csv']) copyFileSync(join(SITE, 'gsc', f), join(dir, f));
+    writeFileSync(join(dir, 'Pages.csv'), readFileSync(join(dir, 'Pages.csv'), 'utf8').trimEnd()
+        + '\nhttps://example.org/guides/widget-alternatives/#step-2,1,29,3.4%,9\n');
+    const { gsc } = await digest({ gsc: dir });
+    const rows = Object.fromEntries(gsc.pages.rows.map(r => [r.key, r.impressions]));
+    assert.equal(rows['/guides/widget-alternatives/'], 200);
+    assert.equal(rows['/guides/widget-alternatives/#step-2'], 29);
 });
 
 test('gsc: the zip reads the same as the folder', async () => {
@@ -255,8 +303,8 @@ test('log: people are browsers that loaded an asset; the rest are set aside by r
     assert.equal(log.people.perDay.length, 14, 'every day, zeros included');
     assert.equal(log.people.avgPerDay, 0.5);
     assert.deepEqual(log.people.weeks, [
-        { from: '2026-10-05', to: '2026-10-11', people: 2, goals: { signup: 1, tool: 1 } },
-        { from: '2026-10-12', to: '2026-10-18', people: 4, goals: { signup: 0, tool: 0 } },
+        { from: '2026-10-05', to: '2026-10-11', people: 2, firstArrivals: 2, goals: { signup: 1, tool: 1 } },
+        { from: '2026-10-12', to: '2026-10-18', people: 4, firstArrivals: 4, goals: { signup: 0, tool: 0 } },
     ]);
 });
 
@@ -355,6 +403,18 @@ test('cli digest --out: named for the last day, compares with the newest earlier
     assert.deepEqual(out.gsc.queries.rows[0].prev, { impressions: 90, clicks: 1, position: 18 });
     assert.equal(out.gsc.prevTotals.impressions, 400);
     assert.ok(out.log, 'the log half survives the re-run');
+});
+
+test('cli digest --out --prev: says which digest it compared with', (t) => {
+    const cache = seededCache(t);
+    const dir = mkdtempSync(join(tmpdir(), 'siteread-prev-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    const prev = join(dir, 'last.json');
+    writeFileSync(prev, JSON.stringify({ gsc: { totals: { impressions: 400 }, range: { to: '2026-10-11' }, queries: { rows: [] } } }));
+    const r = run(['digest', '--offline', '--gsc', join(SITE, 'gsc'), '--prev', prev, '--out', join(dir, 'out')], cache);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /compared with .*last\.json/);
+    assert.doesNotMatch(r.err, /no earlier digest/);
 });
 
 test('cli digest --host: cuts a multi-site JSON log to one site', (t) => {

@@ -15,6 +15,10 @@ const FIXTURE_FOR = {
     'https://claude.com/crawling/bots.json': 'claude-bots',
     'https://developers.google.com/static/search/apis/ipranges/googlebot.json': 'googlebot',
     'https://www.bing.com/toolbox/bingbot.json': 'bingbot',
+    'https://duckduckgo.com/duckassistbot.json': 'duckassistbot',
+    'https://duckduckgo.com/duckduckbot.json': 'duckduckbot',
+    'https://mistral.ai/mistralai-user-ips.json': 'mistralai-user',
+    'https://index.commoncrawl.org/ccbot.json': 'ccbot',
 };
 const DISTINCT_URLS = new Set(SOURCES.map(s => s.url)).size;
 
@@ -48,6 +52,7 @@ const UA = {
     bingbot: 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm) Chrome/116.0.1938.76 Safari/537.36',
     yandex: 'Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)',
     ccbot: 'CCBot/2.0 (https://commoncrawl.org/faq/)',
+    bytespider: 'Mozilla/5.0 (Linux; Android 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Mobile Safari/537.36 (compatible; Bytespider; spider-feedback@bytedance.com)',
     googleExtended: 'Mozilla/5.0 (compatible; Google-Extended)',
     browser: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
 };
@@ -82,8 +87,12 @@ test('verified, spoofed, unknown and n/a', async () => {
     const bing = v.check('157.55.39.10', UA.bingbot);
     assert.deepEqual([bing.kind, bing.agent, bing.verdict, bing.assistant], ['crawler', 'bingbot', 'verified', null]);
 
-    // No vendor list: claude-code (the user's own machine), CCBot, YandexBot.
-    for (const ua of [UA.claudeCode, UA.ccbot, UA.yandex]) {
+    // Common Crawl publishes its ranges (since 0.3.0); a CCBot UA outside them is a fake.
+    assert.equal(v.check('192.0.2.5', UA.ccbot).verdict, 'verified');
+    assert.equal(v.check(SCANNER_IP, UA.ccbot).verdict, 'spoofed');
+
+    // No vendor list: claude-code (the user's own machine), Bytespider, YandexBot.
+    for (const ua of [UA.claudeCode, UA.bytespider, UA.yandex]) {
         const c = v.check(SCANNER_IP, ua);
         assert.deepEqual([c.verdict, c.reason, c.source], ['unknown', 'no-vendor-list', null], ua);
     }
@@ -223,9 +232,9 @@ test('isKnownScannerIp (the 444 rule) only turns unknown into spoofed; a vendor 
     const scanners = new Set([SCANNER_IP, '216.73.216.12']);
     const { v } = await ready({ isKnownScannerIp: (ip) => { seen.push(ip); return scanners.has(ip); } });
 
-    const cc = v.check(SCANNER_IP, UA.ccbot);
+    const cc = v.check(SCANNER_IP, UA.bytespider);
     assert.deepEqual([cc.verdict, cc.reason], ['spoofed', 'known-scanner-ip']);
-    assert.equal(v.check('198.51.100.7', UA.ccbot).verdict, 'unknown', 'not a scanner: still unknown, never verified');
+    assert.equal(v.check('198.51.100.7', UA.bytespider).verdict, 'unknown', 'not a scanner: still unknown, never verified');
     assert.equal(v.check(`::ffff:${SCANNER_IP}`, UA.claudeCode).verdict, 'spoofed');
     assert.ok(seen.includes(SCANNER_IP), 'the hook gets the normalised address');
 
@@ -233,7 +242,7 @@ test('isKnownScannerIp (the 444 rule) only turns unknown into spoofed; a vendor 
     assert.equal(v.check('216.73.216.12', UA.claudebot).verdict, 'verified');
 
     const throwing = createVerifier({ fetch: stubFetch(), now: clock(), log: quiet, isKnownScannerIp: () => { throw new Error('x'); } });
-    assert.equal(throwing.check(SCANNER_IP, UA.ccbot).verdict, 'unknown');
+    assert.equal(throwing.check(SCANNER_IP, UA.bytespider).verdict, 'unknown');
 });
 
 test('load() lets a reader see what another process refreshed into a shared store', async () => {

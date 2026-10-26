@@ -120,8 +120,11 @@ export function weekBuckets(days, last) {
     });
 }
 
+// The #fragment stays: GSC reports a jump link (/guide/#step-2) as its own row, and its
+// impressions are often the same results that showed the page itself, so summing the two
+// counted them twice (one guide read 539 impressions in GSC, 568 in the digest).
 function pathOf(url) {
-    try { const u = new URL(url); return `${u.pathname}${u.search}`; } catch { return url; }
+    try { const u = new URL(url); return `${u.pathname}${u.search}${u.hash}`; } catch { return url; }
 }
 
 function topRows(rows, limit, { merge } = {}) {
