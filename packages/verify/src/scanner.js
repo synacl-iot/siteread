@@ -38,7 +38,41 @@ export const SCANNER_PATH_RE = new RegExp(
     'config\\.ya?ml|aws\\.ya?ml)' +
     // Dockerfile and credentials.* only as FILES: a route that merely ends in /credentials is a
     // normal API path on plenty of apps.
-    '|(/Dockerfile(\\.[a-z]+)?(\\?|$))|(/credentials\\.[a-z]+(\\?|$))',
+    '|(/Dockerfile(\\.[a-z]+)?(\\?|$))|(/credentials\\.[a-z]+(\\?|$))' +
+    // Everything below is path only (^[^?]*): a query value never makes a probe.
+    // Private keys and keystores, by extension or by SSH's default names (/id_rsa, /server.key,
+    // /config/master.key).
+    '|(^[^?]*(\\.(key|pem|p12|pfx|jks|keystore|ppk)|/id_(rsa|dsa|ecdsa|ed25519)(\\.pub)?)(\\?|$))' +
+    // A whole-site download at the root, by the names scanners guess: /site.zip, /www.tar.gz,
+    // /public_html.rar, /backup-2025.sql.gz. Only these names, only at the root: a /press-kit.zip or a
+    // /downloads/app.zip is a reader's download, and /sitemap.xml.gz is a search engine's fetch.
+    '|(^\\/+(site|website|www|wwwroot|web|html|public_html|htdocs|backend|src|source|code|db|database|dump|' +
+    'backups?([-_][\\w-]*)?|[\\w-]+[-_]backup|old)(\\.(tar|sql))?\\.(zip|tar|tgz|gz|rar|7z|bz2|xz)(\\?|$))' +
+    // A SQL dump in any wrapper, anywhere (a bare .sql is matched above).
+    '|(^[^?]*\\.sql\\.(gz|zip|bz2|xz|7z|tgz)(\\?|$))' +
+    // Log files: any *.log, and a framework's log dir (/storage/logs/laravel.log).
+    '|(^[^?]*(\\.log(\\?|$)|/storage/logs/))' +
+    // Editor and deploy leftovers next to a real file: /config.php.save, /index.php~, /settings.php.orig.
+    '|(^[^?]*(\\.(save|orig|swo|tmp|dist|copy)|~)(\\?|$))' +
+    // Cloud credential files. The distinctive names match at any depth; the short ones (/key.json,
+    // /sa.json, /secrets.json) only at the root or under /config/, because an app's own JSON routes
+    // (/api/projects/42/key.json) can end the same way.
+    '|(^[^?]*/(service[-_]?account[-\\w]*|gcp[-_][-\\w]*|google[-_](credentials|key|services|service[-_]account)[-\\w]*|' +
+    'firebase[-_](adminsdk|admin|key|service[-_]account|credentials)[-\\w]*|application_default_credentials|' +
+    'private[-_]?key|client[-_]secrets?)\\.json(\\?|$))' +
+    '|(^\\/+(config\\/)?(keyfile|sa|key|secrets?)\\.json(\\?|$))' +
+    // Build and infrastructure config that carries tokens: Terraform state and vars, serverless,
+    // Netlify, Vercel and monorepo configs, Rails' secrets.yml, Sentry's auth-token file. Not Nuxt's
+    // /_payload.json, which scanners also ask for: a Nuxt site's own pages fetch it on every navigation.
+    '|(^[^?]*/((turbo|nx|lerna|vercel)\\.json|pnpm-workspace\\.ya?ml|netlify\\.toml|serverless\\.ya?ml|' +
+    'Dockerrun\\.aws\\.json|sentry\\.properties|secrets\\.ya?ml|[^/]*\\.tf(vars|state))(\\?|$))' +
+    // Server internals, asked for by traversal or through a dev server's file route
+    // (/@fs/proc/self/environ, /var/run/secrets/kubernetes.io/…), and Laravel's debug bar. The
+    // lookahead keeps a slug like /blog/etc/passwd-explained out.
+    '|(^[^?]*(/_debugbar|/proc/self/|/var/run/secrets(?![\\w-])|/etc/passwd(?![\\w-])))' +
+    // WordPress's REST API under any prefix (/blog/wp-json/batch/v1) and a /wp/ install dir. A site
+    // that runs WordPress already needs `allow` for the wp- rules above.
+    '|(^[^?]*wp-json|^\\/+wp\\/)',
     'i',
 );
 

@@ -243,7 +243,10 @@ even for an IP that hit a scanner path. The ClaudeBot story below is why.
 - **`isScannerPath(path, { allow })`** is true for a vulnerability-scanner request target: dotfiles
   (but not `/.well-known/`), `.php`/`.asp`/`.jsp`/`.env`/`.sql`/`.bak`/`.sh`…, `wp-*`, phpMyAdmin,
   `cgi-bin`, router exploits, percent-encoded dots (`/%2eenv`), secret and config file names,
-  `Dockerfile`. Pass the raw request target (path + query, not URL-decoded: nginx's
+  `Dockerfile`, private keys (`/id_rsa`, `*.pem`), whole-site archives at the root under the names
+  scanners guess (`/site.zip`, `/www.tar.gz`; not `/press-kit.zip` or `/sitemap.xml.gz`), SQL dumps,
+  `*.log`, editor leftovers (`config.php.save`, `index.php~`), cloud credential JSON, Terraform state,
+  `/proc/self/`, `/etc/passwd`, `wp-json`. Pass the raw request target (path + query, not URL-decoded: nginx's
   `$request_uri`). If a real path of yours matches, exempt it:
   `isScannerPath(p, { allow: /^\/(install\.sh|admin\/config\.yml)(\?|$)/ })`.
 - **`parseCidr`**, **`parseList`**, **`normIp`** and **`SOURCES`** are exported for tests and extensions.

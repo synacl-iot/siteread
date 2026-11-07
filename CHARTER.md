@@ -55,6 +55,7 @@ included: package, skill, list feed, `share` endpoint, aggregate job and the pub
 | 2026-W43 | one agent session (pre-release, cap not in force) | site look decided (A · Ledger, from six directions); **`site/` built, not deployed** (PR #3): Angular 22 SSR, home, benchmark (early, populated, unavailable), docs rendered from the READMEs, privacy, operator; 42 tests; shipped-bundle and end-to-end checks against a local `cloud`; SSR memory measured into HOSTING.md; deployed to a VM of its own (siteread.dev live; `api`/`www` wait on DNS); found and closed Caddy logging client IPs on failed requests |
 | 2026-W43 | go-live session 2026-10-22 (pre-release until 0.2.2 at 17:22 UTC) | PRs #4 to #7 (dark-mode headings, verify 0.2.2, the plugin, public-repo records); repo made public; npm 0.2.1 and 0.2.2 published by the owner. **Initial release complete; cap in force from here** |
 | 2026-W43 | several agent sessions 2026-10-22 evening and 2026-10-23 (cap in force; spend not measured, logged at the 2026-10-24 handoff) | cloud source closed (#10), no SSR (#11), prerendered pages (#12), `/account` (#13), the blog and launch post with its IndexNow key and preview card (#14 to #17, phase 4 live), Account in the header (#18); service-side work logged in the private repo |
+| 2026-W45 | one agent session (~30 min) | verify 0.3.1: eight more scanner families measured on one site's 51-day log (keys, whole-site archives, logs, editor leftovers, credential JSON, build config, server internals, `wp-json`); 82 tests |
 
 ## Owner decisions pending
 
