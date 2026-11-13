@@ -59,3 +59,22 @@ export function pageMeta(m: PageMeta): void {
     link.remove();
   });
 }
+
+/**
+ * One block of structured data (schema.org JSON-LD) in the page's head, for search engines. The
+ * prerender writes it into the HTML; in the browser the same block is found by its `id` and
+ * reused, never added twice, and it is taken out when the page is left.
+ */
+export function jsonLd(id: string, data: object): void {
+  const doc = inject(DOCUMENT);
+  let script = doc.head.querySelector<HTMLScriptElement>(`script[data-ld="${id}"]`);
+  if (!script) {
+    script = doc.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute('data-ld', id);
+    doc.head.appendChild(script);
+  }
+  // `<` escaped so no string in the data can close the script element.
+  script.textContent = JSON.stringify({ '@context': 'https://schema.org', ...data }).replace(/</g, '\\u003c');
+  inject(DestroyRef).onDestroy(() => script.remove());
+}

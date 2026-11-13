@@ -1,12 +1,13 @@
 import { isPlatformServer, NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { afterNextRender, Component, computed, inject, input, makeStateKey, PLATFORM_ID, signal, TransferState } from '@angular/core';
-import { Meta } from '@angular/platform-browser';
 import { ResolveFn, RouterLink } from '@angular/router';
 import { catchError, map, Observable, of, tap, timeout } from 'rxjs';
 import { API_BASE, Benchmark, PUBLIC_API } from '../api';
 import { benchmarkView } from '../benchmark/view';
+import { SpotlightCard } from '../benchmark/spotlight';
 import { CopyButton } from '../copy-button';
+import { jsonLd, ORIGIN, pageMeta } from '../seo';
 
 /** `snapshot`: the numbers the build put in the page's HTML, not fetched by this browser. */
 export type BenchmarkLoad = ({ ok: true; data: Benchmark } | { ok: false }) & { snapshot?: true };
@@ -17,7 +18,7 @@ const looksLikeBenchmark = (b: unknown): b is Benchmark => {
     && typeof x.sites === 'number' && typeof x.minSites === 'number' && typeof x.generatedAt === 'string');
 };
 
-function fetchBenchmark(http: HttpClient, api: string, ms: number): Observable<BenchmarkLoad> {
+export function fetchBenchmark(http: HttpClient, api: string, ms: number): Observable<BenchmarkLoad> {
   return http.get<unknown>(`${api}/v1/benchmark.json`).pipe(
     timeout(ms),
     map(data => {
@@ -56,7 +57,7 @@ export const benchmarkResolver: ResolveFn<BenchmarkLoad> = () => {
 
 @Component({
   selector: 'app-benchmark',
-  imports: [RouterLink, NgTemplateOutlet, CopyButton],
+  imports: [RouterLink, NgTemplateOutlet, CopyButton, SpotlightCard],
   templateUrl: './benchmark.html',
 })
 export class BenchmarkPage {
@@ -71,6 +72,8 @@ export class BenchmarkPage {
     return b?.ok ? benchmarkView(b.data) : null;
   });
   protected readonly json = `${PUBLIC_API}/v1/benchmark.json`;
+  /** The meter's marks, one per site still to come: 1 … minSites − 1. */
+  protected readonly ticks = (n: number) => Array.from({ length: Math.max(0, n - 1) }, (_, i) => i + 1);
   protected readonly commands = 'npx siteread share --dry-run\nnpx siteread share';
   // Copy only the dry run: pasting both lines would send right after printing.
   protected readonly dryRun = 'npx siteread share --dry-run';
@@ -86,9 +89,17 @@ export class BenchmarkPage {
         if (load.ok) this.live.set(load.data);
       });
     });
-    inject(Meta).updateTag({
-      name: 'description',
-      content: 'How sites compare: anonymous weekly numbers from sites that chose to share, with the number of sites printed on every row.',
+    const description = 'How sites compare: anonymous weekly numbers from sites that chose to share, with the number of sites printed on every row. People by source, AI agents verified against vendor IP lists, search.';
+    pageMeta({ title: 'How sites compare · siteread', description, path: '/benchmark' });
+    jsonLd('dataset', {
+      '@type': 'Dataset',
+      name: 'siteread benchmark: how small sites compare, week by week',
+      description: description + ' Quartiles appear once enough anonymous sites report a number; named sites show their own values.',
+      url: `${ORIGIN}/benchmark`,
+      isAccessibleForFree: true,
+      creator: { '@type': 'Organization', name: 'siteread', url: ORIGIN },
+      variableMeasured: ['People', 'People from search', 'People from AI assistants', 'AI agent fetches', 'Spoofed AI traffic', 'Search Console clicks and impressions'],
+      distribution: [{ '@type': 'DataDownload', encodingFormat: 'application/json', contentUrl: this.json }],
     });
   }
 }

@@ -20,6 +20,12 @@
       <section class="card big early">
         <div class="early-count">
           <p class="mono early-num">{{ v.sites }} <span>of {{ v.minSites }}</span></p>
+          <div class="meter" role="img" [attr.aria-label]="v.sites + ' of ' + v.minSites + ' anonymous sites so far'">
+            <div class="meter-fill" [style.width.%]="v.progressPct"></div>
+            @for (t of ticks(v.minSites); track t) {
+              <span class="meter-tick" [style.left.%]="(t / v.minSites) * 100"></span>
+            }
+          </div>
           <p class="muted">anonymous sites needed before any spread is shown</p>
         </div>
         <p>This benchmark starts small and says so. With fewer than {{ v.minSites }} anonymous sites, a published median or quartile could give away another site's exact number, so each row shows only how many sites report it.@if (v.named.length === 1) { {{ v.named[0].label }}, the one named site, shows its own numbers from week one.} @else if (v.named.length > 1) { The named sites show their own numbers from week one.}</p>
@@ -30,6 +36,20 @@
       @if (!n.week) {
         <p class="notice">{{ n.label }} has not shared in this window yet.</p>
       }
+    }
+
+    @if (v.spotlights.length) {
+      <section class="stack loose" aria-labelledby="spotlight">
+        <div class="group-head">
+          <h2 class="display h2 small" id="spotlight">{{ v.spotlights.length === 1 ? 'The named site' : 'The named sites' }}, latest week</h2>
+          <span class="note">shared by their owners, under their own names</span>
+        </div>
+        <div class="spots">
+          @for (s of v.spotlights; track s.label) {
+            <app-spotlight [site]="s" />
+          }
+        </div>
+      </section>
     }
 
     @for (g of v.groups; track g.title; let gi = $index) {

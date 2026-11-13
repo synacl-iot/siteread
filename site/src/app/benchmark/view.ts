@@ -100,6 +100,10 @@ export interface BenchmarkView {
   groups: GroupView[];
   history: { label: string; week: string; sites: number; pct: number }[];
   historyLabel: string;
+  /** Anonymous sites so far against minSites, as a % for the meter (capped at 100). */
+  progressPct: number;
+  /** The named sites' latest weeks, most people first. */
+  spotlights: Spotlight[];
 }
 
 const NUMBER = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -195,5 +199,108 @@ export function benchmarkView(b: Benchmark): BenchmarkView {
     historyLabel: weeks.length
       ? `Sites that shared, per week: ${weeks.map(h => `${h.sites} in ${h.week}`).join(', ')}`
       : 'No week has a share yet',
+    progressPct: Math.min(100, Math.round((b.sites / Math.max(1, b.minSites)) * 100)),
+    spotlights: spotlights(b),
   };
+}
+
+// ── Named-site spotlight ─────────────────────────────────────────────────────────────────────
+// While the anonymous count is under minSites, every quartile is hidden and the named sites are
+// the only real numbers on the page, so the page leads with them: a few headline figures and two
+// bars, one for where people came from and one for what kind of AI fetch the site got.
+
+/** One part of a segmented bar. `cls` picks its color: s1 teal, s2 orange, s3 violet, other gray. */
+export interface Segment {
+  key: string;
+  label: string;
+  value: number;
+  /** Its share of the bar's whole, rounded to a whole %, for the label. */
+  pct: number;
+  cls: 's1' | 's2' | 's3' | 'other';
+}
+
+export interface Tile {
+  label: string;
+  value: string;
+  note: string;
+}
+
+export interface Spotlight {
+  label: string;
+  about: string;
+  week: string;
+  /** The site's share is older than the newest week in the window. */
+  stale: boolean;
+  tiles: Tile[];
+  /** null when the site reported no people. */
+  people: { total: number; segments: Segment[]; label: string } | null;
+  /** null when the site reported no AI agent fetches. */
+  ai: { total: number; segments: Segment[]; label: string } | null;
+}
+
+function segments(parts: { key: string; label: string; value: number; cls: Segment['cls'] }[], total: number): Segment[] {
+  return parts
+    .filter(p => p.value > 0)
+    .map(p => ({ ...p, pct: Math.round((p.value / total) * 100) }));
+}
+
+const barLabel = (title: string, segs: Segment[]) =>
+  `${title}: ${segs.map(s => `${s.label} ${fmt(s.value)} (${s.pct} %)`).join(', ')}`;
+
+/** A named site's latest week, as the page's spotlight shows it. null when it has not shared. */
+export function spotlight(n: NamedRow, windowTo: string | null): Spotlight | null {
+  if (!n.week) return null;
+  const v = (k: string) => n.metrics[k]?.value;
+  const has = (k: string) => typeof v(k) === 'number';
+  const tiles: Tile[] = [];
+  if (has('people')) tiles.push({ label: 'People', value: fmt(v('people')!), note: 'real browsers, scanners left out' });
+  const aiKeys = ['aiAnswerFetches', 'aiSearchFetches', 'aiTrainingFetches'];
+  const aiTotal = aiKeys.reduce((s, k) => s + (v(k) ?? 0), 0);
+  if (aiKeys.some(has)) tiles.push({ label: 'AI agent fetches', value: fmt(aiTotal), note: 'verified against vendor IP lists' });
+  if (has('gscClicks')) tiles.push({ label: 'Search clicks', value: fmt(v('gscClicks')!), note: has('gscPosition') ? `average position ${fmt(v('gscPosition')!)}` : 'Search Console' });
+  else if (has('searchEngineFetches')) tiles.push({ label: 'Search crawler fetches', value: fmt(v('searchEngineFetches')!), note: 'Googlebot and bingbot, verified' });
+  if (has('aiSpoofedPct')) tiles.push({ label: 'Spoofed AI traffic', value: `${fmt(v('aiSpoofedPct')!)} %`, note: 'claimed an AI user-agent, came from elsewhere' });
+
+  const people = v('people') ?? 0;
+  let peopleBar: Spotlight['people'] = null;
+  if (people > 0) {
+    const search = v('peopleFromSearch') ?? 0;
+    const ai = v('peopleFromAi') ?? 0;
+    const social = v('peopleFromSocial') ?? 0;
+    const segs = segments([
+      { key: 'search', label: 'Search', value: search, cls: 's1' },
+      { key: 'ai', label: 'AI assistants', value: ai, cls: 's2' },
+      { key: 'social', label: 'Social', value: social, cls: 's3' },
+      { key: 'other', label: 'Direct and other', value: Math.max(0, people - search - ai - social), cls: 'other' },
+    ], people);
+    peopleBar = { total: people, segments: segs, label: barLabel(`Where ${n.label}'s ${fmt(people)} people came from`, segs) };
+  }
+
+  let aiBar: Spotlight['ai'] = null;
+  if (aiTotal > 0) {
+    const segs = segments([
+      { key: 'answer', label: 'Reading for a person', value: v('aiAnswerFetches') ?? 0, cls: 's2' },
+      { key: 'search', label: 'Search indexing', value: v('aiSearchFetches') ?? 0, cls: 's1' },
+      { key: 'training', label: 'Training crawls', value: v('aiTrainingFetches') ?? 0, cls: 's3' },
+    ], aiTotal);
+    aiBar = { total: aiTotal, segments: segs, label: barLabel(`${n.label}'s ${fmt(aiTotal)} AI agent fetches`, segs) };
+  }
+
+  return {
+    label: n.label,
+    about: NAMED_ABOUT[n.label] ?? '',
+    week: n.week,
+    stale: windowTo != null && n.week < windowTo,
+    tiles,
+    people: peopleBar,
+    ai: aiBar,
+  };
+}
+
+/** Every named site that has shared, the one with the most people first. */
+export function spotlights(b: Benchmark): Spotlight[] {
+  return b.named
+    .map(n => spotlight(n, b.window?.to ?? null))
+    .filter((s): s is Spotlight => s !== null)
+    .sort((a, z) => (z.people?.total ?? 0) - (a.people?.total ?? 0));
 }

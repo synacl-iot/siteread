@@ -103,4 +103,24 @@ describe('BenchmarkPage', () => {
     await mount({ ok: true, data: sample() });
     TestBed.inject(HttpTestingController).expectNone(`${PUBLIC_API}/v1/benchmark.json`);
   });
+
+  it('leads with each named site’s week: figures, the stale week, bars with their numbers in text', async () => {
+    const el = await render({ ok: true, data: sample({ sites: 2, metrics: { people: { about: '', lowerIsBetter: false, sites: 2 } }, window: { from: '2026-W43', to: '2026-W46' }, named: [
+      { label: 'synacl.com', week: '2026-W44', metrics: { people: { value: 223 }, peopleFromSearch: { value: 41 }, aiAnswerFetches: { value: 36 } } },
+    ] }) });
+    const spot = el.querySelector('app-spotlight')!;
+    expect(text(spot.querySelector('.spot-week')!)).toBe('week 2026-W44 · last share');
+    expect(text(spot.querySelector('.tiles')!)).toContain('People 223');
+    const bar = spot.querySelector('.seg-bar')!;
+    expect(bar.getAttribute('aria-label')).toContain('Search 41 (18 %)');
+    expect(bar.querySelectorAll('.seg').length).toBe(2);
+    expect(el.querySelector('.meter')!.getAttribute('aria-label')).toBe('2 of 10 anonymous sites so far');
+  });
+
+  it('puts a canonical link and Dataset data in the head', async () => {
+    await render({ ok: true, data: sample() });
+    expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://siteread.dev/benchmark');
+    const ld = JSON.parse(document.head.querySelector('script[data-ld="dataset"]')!.textContent!);
+    expect(ld['@type']).toBe('Dataset');
+  });
 });

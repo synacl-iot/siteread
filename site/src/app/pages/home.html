@@ -1,19 +1,34 @@
 <main class="wrap page home">
 
-  <section class="stack loose">
-    <p class="eyebrow">One line from an access log, checked</p>
-    <div class="code" role="group" aria-label="An access log line and siteread's verdict">
-      <div class="muted">203.0.113.9 - - [17/Oct/2026:09:14:02 -0700] "GET /pricing/ HTTP/1.1" 200 5120 "-"</div>
-      <div class="muted">  "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot"</div>
-      <div class="verdict"><span class="bad">spoofed</span>   203.0.113.9 claims chatgpt-user (chatgpt, answer) but is not in openai.com/chatgpt-user.json (234 prefixes)</div>
+  <section class="hero">
+    <div class="stack loose hero-copy">
+      <p class="eyebrow">For people who run their own site</p>
+      <h1 class="display h1 hero-title">Who read your site this week, was it good, and what to write next</h1>
+      <p class="lede">From your server's access log and a Search Console export. Every crawler is checked against the list its vendor publishes, so a scanner wearing ChatGPT's user-agent is not counted as ChatGPT. It runs on your machine and sends nothing unless you choose to share.</p>
+      <div class="row">
+        <code class="cmd">{{ check }}</code>&ngsp;
+        <app-copy [text]="check" />
+      </div>
+      <div class="row">
+        <a routerLink="/docs" class="btn primary">Get started</a>&ngsp;
+        <a routerLink="/benchmark" class="btn">See real numbers</a>
+      </div>
     </div>
-    <h1 class="display h1 hero-title">Who read your site this week, was it good, and what to write next</h1>
-    <p class="lede">From your server's access log and a Search Console export. Every crawler is checked against the list its vendor publishes, so a scanner wearing ChatGPT's user-agent is not counted as ChatGPT. It runs on your machine and sends nothing unless you choose to share.</p>
-    <div class="row">
-      <code class="cmd">{{ check }}</code>&ngsp;
-      <app-copy [text]="check" />&ngsp;
-      <a routerLink="/benchmark">See how sites compare</a>
-    </div>
+
+    <figure class="logpanel" aria-labelledby="logpanel-cap">
+      <div class="logpanel-bar" aria-hidden="true"><span></span><span></span><span></span><em>access.log, checked</em></div>
+      <ol class="loglines">
+        @for (l of lines; track l.ip) {
+          <li class="logline">
+            <span class="mono ip">{{ l.ip }}</span>
+            <span class="mono req">{{ l.claim }} <span class="muted">GET {{ l.path }}</span></span>
+            <span class="pill" [class]="l.kind">{{ l.word }}</span>
+            <span class="why">{{ l.why }}</span>
+          </li>
+        }
+      </ol>
+      <figcaption id="logpanel-cap" class="logpanel-foot mono">5 requests · 2 verified · 2 spoofed and not counted · 1 person</figcaption>
+    </figure>
   </section>
 
   <section class="stack">
@@ -31,7 +46,41 @@
         <p>was enough for a rule-of-thumb filter to call a real ClaudeBot spoofed. So where a vendor list exists, the list decides.</p>
       </div>
     </div>
-    <p class="note">One site's nginx log, 30 days to 2026-10-16.</p>
+    <p class="note">One site's nginx log, 30 days to 2026-10-16. <a [routerLink]="['/blog', posts[posts.length - 1].slug]">How we found out</a></p>
+  </section>
+
+  @if (lead(); as s) {
+    <section class="stack loose" aria-labelledby="real-week">
+      <div class="row between">
+        <h2 id="real-week" class="display h2">One real week, in the open</h2>
+        <a routerLink="/benchmark">Compare it on the benchmark</a>
+      </div>
+      <p class="lede">A site that shares its numbers under its own name. This is what a week looks like once the fakes are taken out.</p>
+      <app-spotlight [site]="s" />
+    </section>
+  }
+
+  <section class="stack loose" aria-labelledby="unseen">
+    <div class="stack">
+      <h2 id="unseen" class="display h2">What a JavaScript tag never sees</h2>
+      <p class="lede">AI assistants fetch your pages for people, AI crawlers index and train on them, and bots borrow their names. None of them runs your analytics script. Your access log saw every one.</p>
+    </div>
+    <div class="table-scroll">
+      <table class="compare">
+        <thead>
+          <tr><th scope="col"><span class="visually-hidden">What</span></th><th scope="col">A JavaScript analytics tag</th><th scope="col">siteread, from the log</th></tr>
+        </thead>
+        <tbody>
+          @for (c of compare; track c.what) {
+            <tr>
+              <th scope="row">{{ c.what }}</th>
+              <td class="no">{{ c.tag }}</td>
+              <td class="yes">{{ c.log }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="stack loose" aria-labelledby="how">
@@ -48,7 +97,7 @@
         <span class="tag">2 · memo</span>
         <h3>Read it as a dated memo</h3>
         <p>The seo-read skill for Claude Code writes the week up: what changed, who came from where, which crawler read what, and two to four things to do next.</p>
-        <pre class="code small">"my weekly seo read"</pre>
+        <pre class="code small">{{ install }}</pre>
       </div>
       <div class="card">
         <span class="tag">3 · share, if you want</span>
@@ -83,15 +132,69 @@
         </table>
       </div>
       <p class="memo-text small"><strong>Crawlers.</strong> Googlebot, verified, fetched 7 sitemap URLs last week against 4 the week before, and still asks for /old-page/, which is not in the sitemap. ClaudeBot, verified, read 2 pages. One ChatGPT-User request came from outside OpenAI's list: spoofed, not counted.</p>
+      <p class="memo-text small"><strong>Next.</strong> Redirect /old-page/ to the page that replaced it, so Googlebot stops asking for a page the sitemap dropped.</p>
+    </div>
+  </section>
+
+  <section class="stack loose" aria-labelledby="private">
+    <h2 id="private" class="display h2">Your log stays yours</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag">on your machine</span>
+        <h3>Nothing to host, nothing to sign up for</h3>
+        <p>The CLI and the skill read files on your disk. The only requests they make are GETs of the vendors' public IP lists.</p>
+      </div>
+      <div class="card">
+        <span class="tag">only on a yes</span>
+        <h3>A share is a week of totals</h3>
+        <p>No hostname, no URL, no visitor IP. The exact payload is printed before anything is sent, and nothing goes without your yes.</p>
+      </div>
+      <div class="card">
+        <span class="tag">no tag here either</span>
+        <h3>This site reads itself the same way</h3>
+        <p>siteread.dev runs no analytics script and loads no third-party fonts. It is read from its own access log, by siteread.</p>
+      </div>
+    </div>
+    <p><a routerLink="/privacy">What share sends, and what it never does</a></p>
+  </section>
+
+  <section class="stack loose" aria-labelledby="posts">
+    <div class="row between">
+      <h2 id="posts" class="display h2">From the blog</h2>
+      <a routerLink="/blog">All posts</a>
+    </div>
+    <div class="grid wide">
+      @for (p of posts; track p.slug) {
+        <article class="card post-card">
+          <p class="mono note">{{ p.date }}</p>
+          <h3><a [routerLink]="['/blog', p.slug]">{{ p.title }}</a></h3>
+          <p>{{ p.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="stack loose" aria-labelledby="faq">
+    <h2 id="faq" class="display h2">Questions</h2>
+    <div class="faq">
+      @for (f of faq; track f.q) {
+        <details>
+          <summary>{{ f.q }}</summary>
+          <p>{{ f.a }}</p>
+        </details>
+      }
     </div>
   </section>
 
   <section class="row between cta">
     <div class="stack cta-text">
-      <h2 class="display h2 small">The benchmark</h2>
-      <p class="muted">Anonymous weekly numbers from sites that chose to share, with the count printed on every row. Small and dated, and it says so.</p>
+      <h2 class="display h2 small">Read your own first week</h2>
+      <p class="muted">Point it at an access log, add a Search Console export if you have one, and see who really came.</p>
     </div>
-    <a routerLink="/benchmark" class="btn primary">Open the benchmark</a>
+    <div class="row">
+      <a routerLink="/docs" class="btn primary">Get started</a>&ngsp;
+      <a routerLink="/benchmark" class="btn">Open the benchmark</a>
+    </div>
   </section>
 
 </main>

@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
-import { DomSanitizer, Meta, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { DOCS, VERSION } from '../generated/docs';
+import { pageMeta } from '../seo';
 
 @Component({
   selector: 'app-docs',
@@ -18,9 +19,10 @@ export class Docs {
   }));
 
   constructor() {
-    inject(Meta).updateTag({
-      name: 'description',
-      content: 'siteread docs: the check, lists, digest and share commands, the seo-read skill, the library, the vendor lists and the feed format.',
+    pageMeta({
+      title: 'Docs · siteread',
+      description: 'siteread docs: the check, lists, digest and share commands, the seo-read skill, the library, the vendor lists and the feed format.',
+      path: '/docs',
     });
   }
 }
