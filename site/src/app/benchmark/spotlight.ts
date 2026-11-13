@@ -38,6 +38,18 @@ import { Segment, Spotlight } from './view';
       @if (s.ai; as a) {
         <ng-container *ngTemplateOutlet="bar; context: { title: 'What AI agents came for', total: a.total, unit: 'fetches', segs: a.segments, label: a.label }" />
       }
+      @if (s.crawl; as c) {
+        <ng-container *ngTemplateOutlet="bar; context: { title: 'Who crawled more', total: c.total, unit: 'verified fetches', segs: c.segments, label: c.label }" />
+      }
+      @if (s.search; as f) {
+        <div class="seg-block funnel">
+          <p class="seg-title"><strong>Search, impressions to clicks</strong> <span class="muted mono">{{ f.ctr }} click-through@if (f.position) { · position {{ f.position }}}</span></p>
+          <div class="funnel-rows" role="img" [attr.aria-label]="f.label">
+            <div class="funnel-row"><span class="funnel-name">Impressions</span>&ngsp;<div class="funnel-track"><div class="funnel-bar s1" style="width: 100%" [title]="f.impressions + ' impressions'"></div></div>&ngsp;<span class="mono funnel-num">{{ f.impressions }}</span></div>
+            <div class="funnel-row"><span class="funnel-name">Clicks</span>&ngsp;<div class="funnel-track"><div class="funnel-bar s2" [style.width.%]="f.clickPct" [title]="f.clicks + ' clicks, ' + f.ctr"></div></div>&ngsp;<span class="mono funnel-num">{{ f.clicks }}</span></div>
+          </div>
+        </div>
+      }
     </article>
 
     <ng-template #bar let-title="title" let-total="total" let-unit="unit" let-segs="segs" let-label="label">
@@ -45,7 +57,7 @@ import { Segment, Spotlight } from './view';
         <p class="seg-title"><strong>{{ title }}</strong> <span class="muted mono">{{ total }} {{ unit }}</span></p>
         <div class="seg-bar" role="img" [attr.aria-label]="label">
           @for (g of asSegs(segs); track g.key) {
-            <div class="seg" [class]="g.cls" [style.flex-grow]="g.value"></div>
+            <div class="seg" [class]="g.cls" [style.flex-grow]="g.value" [title]="g.label + ': ' + g.value + ' (' + g.pct + ' %)'"></div>
           }
         </div>
         <ul class="seg-legend" aria-hidden="true">

@@ -490,3 +490,57 @@ table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .post-body { max-width: 70ch; font-size: 17px; }
 .post-body h2 { margin-top: 20px; }
 .post-cmd { gap: 10px; }
+
+/* Home: why siteread, one number per point */
+
+.moat { padding: 36px 0 8px; border-top: 3px solid var(--accent); }
+.moat-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 28px; }
+.moat-item { display: flex; flex-direction: column; gap: 8px; }
+.moat-num { font-size: 48px; font-weight: 500; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.moat-num span { display: block; margin-top: 6px; font-size: 15px; color: var(--muted); }
+.moat-item h3 { font-size: 18px; }
+.moat-item p { font-size: 15px; color: var(--muted); }
+
+/* Benchmark: headline counts */
+
+.kpis { margin: 8px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.kpi { padding: 16px 16px 16px 0; display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 4px; }
+.kpi dt { font-size: 13px; color: var(--muted); }
+.kpi dd { margin: 0; font-size: 34px; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; }
+
+/* Benchmark: ratios worked out per named site */
+
+.ratios { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px; }
+.ratio { display: flex; flex-direction: column; gap: 10px; }
+.ratio h3 { font-size: 17px; }
+.ratio-about { font-size: 14px; }
+.ratio-rows { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.ratio-rows li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; }
+.ratio-site { font-size: 14px; }
+.ratio-num { font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ratio-track, .hbar-track, .funnel-track { grid-column: 1 / -1; display: block; height: 8px; border-radius: 999px; background: var(--code); overflow: hidden; }
+.ratio-bar, .hbar { display: block; height: 100%; min-width: 3px; border-radius: 999px; background: var(--s2); }
+:is(.ratio-bar, .hbar).n1 { background: var(--s3); }
+
+/* Benchmark, early: the named sites side by side in each metric row */
+
+.metrics .compare-cell { width: 40%; min-width: 260px; padding-right: 28px; }
+.hbars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hbars li { display: grid; grid-template-columns: 96px 1fr 64px; gap: 10px; align-items: center; }
+.hbar-site { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbars .hbar-track { grid-column: auto; height: 10px; }
+.hbar-num { font-size: 14px; text-align: right; }
+
+/* Spotlight: search funnel */
+
+.funnel-rows { display: flex; flex-direction: column; gap: 6px; }
+.funnel-row { display: grid; grid-template-columns: 92px 1fr 64px; gap: 10px; align-items: center; font-size: 13px; }
+.funnel-name { color: var(--muted); }
+.funnel-row .funnel-track { grid-column: auto; height: 12px; border-radius: 4px; }
+.funnel-bar { height: 100%; min-width: 3px; border-radius: 4px; }
+.funnel-bar.s1 { background: var(--s1); }
+.funnel-bar.s2 { background: var(--s2); }
+.funnel-num { text-align: right; }
+@media (forced-colors: active) {
+  .ratio-bar, .hbar, .funnel-bar { forced-color-adjust: none; }
+}

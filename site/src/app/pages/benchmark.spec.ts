@@ -117,6 +117,18 @@ describe('BenchmarkPage', () => {
     expect(el.querySelector('.meter')!.getAttribute('aria-label')).toBe('2 of 10 anonymous sites so far');
   });
 
+  it('while early, each row draws the named sites as bars with their numbers, and ratios get their own cards', async () => {
+    const el = await render({ ok: true, data: sample({ sites: 2, metrics: { people: { about: '', lowerIsBetter: false, sites: 2 } }, named: [
+      { label: 'synacl.com', week: '2026-W42', metrics: { people: { value: 223 }, peopleFromAi: { value: 14 } } },
+    ] }) });
+    const row = el.querySelector('.metrics tbody tr')!;
+    expect(text(row.querySelector('.compare-cell')!)).toBe('synacl.com 223');
+    expect(row.querySelector('.hbar')!.getAttribute('title')).toBe('synacl.com: 223');
+    expect(row.querySelectorAll('.named').length).toBe(0);
+    expect([...el.querySelectorAll('.ratio h3')].map(text)).toContain('People from AI assistants');
+    expect(text(el.querySelector('.kpis')!)).toContain('2 / 10');
+  });
+
   it('puts a canonical link and Dataset data in the head', async () => {
     await render({ ok: true, data: sample() });
     expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://siteread.dev/benchmark');

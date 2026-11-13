@@ -49,6 +49,13 @@ cap is spent, stop and say so.
   the benchmark). The FAQ text lives once, in `pages/home.ts`, for both the page and its FAQPage data. The hero's
   log lines use documentation IPs or a vendor's own published ranges only. Segment colors are the `--s1..--s3`
   and `--s-other` tokens in `styles.css`, checked for color-vision separation in both modes.
+  Same day, second pass (owner: "more graphs and numbers", "show the moat"): a "Why siteread" band under the hero,
+  one number per point, only claims true today (13 vendor IP lists for 15 crawlers, no tag, no IPs sent, the open
+  benchmark); never an "only" or "first" claim. The moat's list count mirrors `packages/verify/src/ip-ranges.js`
+  `SOURCES`: update both together. The benchmark adds headline counts, ratio cards worked out from each named
+  site's own numbers (`ratios()` in `benchmark/view.ts`: nothing estimated), per-row bars comparing the named
+  sites while early, and in each spotlight a "who crawled more" bar and a Search Console funnel. Every bar has
+  its number printed as text and a `title`.
 - The weekly cap in `CHARTER.md` applies since the initial release (2026-10-22). It is real: log the week's spend
   in its table, stop when spent, and say so.
 - History before this repo existed lives in the Synacl workspace's memory (`project_siteread_side_tool`,

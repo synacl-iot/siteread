@@ -1,5 +1,5 @@
-import { Benchmark } from '../api';
-import { benchmarkView, namedSentence, niceCeil, ordinal, rowView, spotlight, spotlights, utcMinute } from './view';
+import { Benchmark, NamedRow } from '../api';
+import { benchmarkView, kpis, namedSentence, niceCeil, ordinal, ratios, rowView, spotlight, spotlights, utcMinute } from './view';
 
 const metric = (sites: number, q?: [number, number, number], lowerIsBetter = false) => ({
   about: 'x', lowerIsBetter, sites, ...(q ? { p25: q[0], p50: q[1], p75: q[2] } : {}),
@@ -175,7 +175,46 @@ describe('spotlight', () => {
     expect(s.people!.segments.map(g => g.key)).toEqual(['other']);
     expect(s.ai!.segments.map(g => g.key)).toEqual(['training']);
     expect(spotlight({ label: 'x', week: '2026-W46', metrics: {} }, null)).toEqual(
-      { label: 'x', about: '', week: '2026-W46', stale: false, tiles: [], people: null, ai: null });
+      { label: 'x', about: '', week: '2026-W46', stale: false, tiles: [], people: null, ai: null, crawl: null, search: null, spoofedPct: null });
+  });
+
+  it('who crawled more, and the search funnel from impressions to clicks', () => {
+    const s = spotlight(synacl, '2026-W46')!;
+    expect(s.crawl!.segments.map(g => [g.key, g.value, g.pct])).toEqual([['ai', 375, 61], ['engines', 237, 39]]);
+    expect(s.search).toEqual({
+      impressions: '1,228', clicks: '38', clickPct: 3.1, ctr: '3.1 %', position: '7.5',
+      label: "synacl.com's search: 1,228 impressions, 38 clicks, 3.1 % click-through, average position 7.5",
+    });
+    expect(s.spoofedPct).toBe(13.3);
+  });
+
+  it('ratios per named site, worked out from its own numbers', () => {
+    const b = sample({ named: [synacl, { label: 'quiet.dev', week: null, metrics: {} }] });
+    const r = Object.fromEntries(ratios(b).map(x => [x.key, x.rows.map(y => y.text)]));
+    expect(r).toEqual({
+      fromSearch: ['18.4 %'], fromAi: ['6.3 %'], aiPerPerson: ['1.7 ×'], aiVsSearch: ['1.6 ×'],
+      answerShare: ['9.6 %'], spoofed: ['13.3 %'], ctr: ['3.1 %'],
+    });
+    expect(ratios(sample({ named: [] }))).toEqual([]);
+  });
+
+  it('headline counts sum the named sites’ latest weeks', () => {
+    const k = kpis(sample({ sites: 0, named: [synacl, { label: 'small.dev', week: '2026-W46', metrics: { people: { value: 14 }, aiTrainingFetches: { value: 2 } } }] }));
+    expect(k.map(x => `${x.value} ${x.label}`)).toEqual([
+      '0 / 10 anonymous sites toward the first spread', '2 named sites sharing',
+      '237 people, the named sites’ latest weeks', '377 verified AI agent fetches, same weeks', '2 weeks on record',
+    ]);
+  });
+
+  it('early rows compare the named sites on one bar scale; a percentage stays out of 100', () => {
+    const two: NamedRow[] = [
+      { label: 'a', week: 'w', metrics: { people: { value: 50 }, aiSpoofedPct: { value: 13.3 } } },
+      { label: 'b', week: 'w', metrics: { people: { value: 200 } } },
+    ];
+    expect(rowView({ key: 'people', label: '', about: '' }, metric(2), 10, two).bars).toEqual(
+      [{ label: 'a', text: '50', pct: 25 }, { label: 'b', text: '200', pct: 100 }]);
+    expect(rowView({ key: 'aiSpoofedPct', label: '', about: '', unit: '%' }, metric(2), 10, two).bars).toEqual(
+      [{ label: 'a', text: '13.3 %', pct: 13.3 }]);
   });
 
   it('a site that has not shared has no spotlight; the busiest site leads', () => {

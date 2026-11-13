@@ -77,6 +77,8 @@ export interface RowView {
   /** Strip geometry in % of the scale; the strip itself is decoration, the cells carry the numbers. */
   box: { left: number; width: number } | null;
   median: number | null;
+  /** The named sites side by side, each bar against the largest of them; only sites with a value. */
+  bars: { label: string; text: string; pct: number }[];
 }
 
 export interface GroupView {
@@ -104,6 +106,22 @@ export interface BenchmarkView {
   progressPct: number;
   /** The named sites' latest weeks, most people first. */
   spotlights: Spotlight[];
+  /** Headline counts for the top of the page. */
+  kpis: Kpi[];
+  /** Ratios worked out from each named site's own numbers. */
+  ratios: RatioView[];
+}
+
+export interface Kpi {
+  value: string;
+  label: string;
+}
+
+export interface RatioView {
+  key: string;
+  title: string;
+  about: string;
+  rows: { label: string; text: string; pct: number }[];
 }
 
 const NUMBER = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -159,7 +177,19 @@ export function rowView(spec: MetricSpec, m: BenchmarkMetric | undefined, minSit
     hiText: withUnit(fmt(hi), spec.unit),
     box: q ? { left: pct(q[0], hi), width: Math.round((pct(q[2], hi) - pct(q[0], hi)) * 10) / 10 } : null,
     median: q ? pct(q[1], hi) : null,
+    bars: compareBars(named, own, spec.unit),
   };
+}
+
+function compareBars(named: readonly NamedRow[], own: ({ value: number } | undefined)[], unit?: '%') {
+  const top = Math.max(0, ...own.map(o => o?.value ?? 0));
+  return named.flatMap((n, i) => {
+    const o = own[i];
+    if (!o) return [];
+    // A percentage keeps its own scale: 13 % is a short bar even when it is the largest.
+    const scale = unit === '%' ? 100 : top;
+    return [{ label: n.label, text: withUnit(fmt(o.value), unit), pct: scale > 0 ? pct(o.value, scale) : 0 }];
+  });
 }
 
 /** 'synacl.com (the site …) is the one named site.' or 'N sites are named, by their owner's choice: …'. */
@@ -201,7 +231,74 @@ export function benchmarkView(b: Benchmark): BenchmarkView {
       : 'No week has a share yet',
     progressPct: Math.min(100, Math.round((b.sites / Math.max(1, b.minSites)) * 100)),
     spotlights: spotlights(b),
+    kpis: kpis(b),
+    ratios: ratios(b),
   };
+}
+
+const sharing = (b: Benchmark) => b.named.filter(n => n.week);
+const val = (n: NamedRow, k: string) => n.metrics[k]?.value;
+const AI_KEYS = ['aiAnswerFetches', 'aiSearchFetches', 'aiTrainingFetches'];
+const aiOf = (n: NamedRow) => (AI_KEYS.some(k => typeof val(n, k) === 'number') ? AI_KEYS.reduce((s, k) => s + (val(n, k) ?? 0), 0) : undefined);
+
+/** The page's headline counts. Sums run over the named sites' latest weeks and say so. */
+export function kpis(b: Benchmark): Kpi[] {
+  const named = sharing(b);
+  const sum = (f: (n: NamedRow) => number | undefined) => named.reduce((s, n) => s + (f(n) ?? 0), 0);
+  const out: Kpi[] = [
+    { value: `${fmt(b.sites)} / ${fmt(b.minSites)}`, label: 'anonymous sites toward the first spread' },
+    { value: fmt(named.length), label: named.length === 1 ? 'named site sharing' : 'named sites sharing' },
+  ];
+  if (named.length) {
+    out.push({ value: fmt(sum(n => val(n, 'people'))), label: 'people, the named sites’ latest weeks' });
+    out.push({ value: fmt(sum(aiOf)), label: 'verified AI agent fetches, same weeks' });
+  }
+  out.push({ value: fmt(b.history.length), label: b.history.length === 1 ? 'week on record' : 'weeks on record' });
+  return out;
+}
+
+interface RatioSpec {
+  key: string;
+  title: string;
+  about: string;
+  /** '%': the bar is the value out of 100. 'x': the bar is against the largest site. */
+  unit: '%' | 'x';
+  of: (n: NamedRow) => number | undefined;
+}
+
+const share = (part: number | undefined, whole: number | undefined) =>
+  part === undefined || !whole ? undefined : (part / whole) * 100;
+
+const RATIOS: readonly RatioSpec[] = [
+  { key: 'fromSearch', title: 'People from search', about: 'share of people whose first visit came from a search engine', unit: '%',
+    of: n => share(val(n, 'peopleFromSearch'), val(n, 'people')) },
+  { key: 'fromAi', title: 'People from AI assistants', about: 'share of people who first came from ChatGPT, Perplexity, Claude and others', unit: '%',
+    of: n => share(val(n, 'peopleFromAi'), val(n, 'people')) },
+  { key: 'aiPerPerson', title: 'AI fetches per person', about: 'verified AI agent page fetches for every person who read a page', unit: 'x',
+    of: n => (val(n, 'people') ? (aiOf(n) ?? 0) / val(n, 'people')! : undefined) },
+  { key: 'aiVsSearch', title: 'AI fetches per search-engine fetch', about: 'verified AI agent fetches against verified Googlebot and bingbot fetches; above 1 × AI agents crawled more', unit: 'x',
+    of: n => (val(n, 'searchEngineFetches') ? (aiOf(n) ?? 0) / val(n, 'searchEngineFetches')! : undefined) },
+  { key: 'answerShare', title: 'AI fetches made for a person', about: 'share of verified AI fetches that were an assistant reading for someone, not a crawl', unit: '%',
+    of: n => share(val(n, 'aiAnswerFetches'), aiOf(n)) },
+  { key: 'spoofed', title: 'Spoofed AI traffic', about: 'requests under an AI user-agent from outside the vendor’s list', unit: '%',
+    of: n => val(n, 'aiSpoofedPct') },
+  { key: 'ctr', title: 'Search click-through', about: 'Search Console clicks per impression', unit: '%',
+    of: n => val(n, 'gscCtrPct') ?? share(val(n, 'gscClicks'), val(n, 'gscImpressions')) },
+];
+
+/** Each ratio, per named site that has the numbers for it; a ratio no site can give is left out. */
+export function ratios(b: Benchmark): RatioView[] {
+  const named = sharing(b);
+  return RATIOS.map(r => {
+    const vals = named.map(n => ({ label: n.label, v: r.of(n) })).filter((x): x is { label: string; v: number } => x.v !== undefined && Number.isFinite(x.v));
+    const top = Math.max(0, ...vals.map(x => x.v));
+    const rows = vals.map(x => ({
+      label: x.label,
+      text: r.unit === '%' ? `${fmt(x.v)} %` : `${fmt(x.v)} ×`,
+      pct: r.unit === '%' ? pct(x.v, 100) : top > 0 ? pct(x.v, top) : 0,
+    }));
+    return { key: r.key, title: r.title, about: r.about, rows };
+  }).filter(r => r.rows.length);
 }
 
 // ── Named-site spotlight ─────────────────────────────────────────────────────────────────────
@@ -236,6 +333,22 @@ export interface Spotlight {
   people: { total: number; segments: Segment[]; label: string } | null;
   /** null when the site reported no AI agent fetches. */
   ai: { total: number; segments: Segment[]; label: string } | null;
+  /** Verified AI agents against verified search engines; null without search-engine numbers. */
+  crawl: { total: number; segments: Segment[]; label: string } | null;
+  /** Search Console impressions down to clicks; null without both. */
+  search: SearchFunnel | null;
+  /** Spoofed share of AI user-agent requests, for the home page; null when not reported. */
+  spoofedPct: number | null;
+}
+
+export interface SearchFunnel {
+  impressions: string;
+  clicks: string;
+  /** Clicks as a % of impressions: the clicks bar's width against the impressions bar. */
+  clickPct: number;
+  ctr: string;
+  position: string | null;
+  label: string;
 }
 
 function segments(parts: { key: string; label: string; value: number; cls: Segment['cls'] }[], total: number): Segment[] {
@@ -286,6 +399,33 @@ export function spotlight(n: NamedRow, windowTo: string | null): Spotlight | nul
     aiBar = { total: aiTotal, segments: segs, label: barLabel(`${n.label}'s ${fmt(aiTotal)} AI agent fetches`, segs) };
   }
 
+  // Who crawled more: verified AI agents or verified search engines, as one two-part bar.
+  let crawl: Spotlight['crawl'] = null;
+  const engines = v('searchEngineFetches') ?? 0;
+  if (aiTotal + engines > 0 && has('searchEngineFetches')) {
+    const segs = segments([
+      { key: 'ai', label: 'AI agents', value: aiTotal, cls: 's2' },
+      { key: 'engines', label: 'Googlebot and bingbot', value: engines, cls: 's1' },
+    ], aiTotal + engines);
+    crawl = { total: aiTotal + engines, segments: segs, label: barLabel(`Who crawled ${n.label} more`, segs) };
+  }
+
+  let search: SearchFunnel | null = null;
+  const imp = v('gscImpressions');
+  const clk = v('gscClicks');
+  if (imp && typeof clk === 'number') {
+    const ctrPct = v('gscCtrPct') ?? (clk / imp) * 100;
+    const pos = has('gscPosition') ? fmt(v('gscPosition')!) : null;
+    search = {
+      impressions: fmt(imp),
+      clicks: fmt(clk),
+      clickPct: pct(clk, imp),
+      ctr: `${fmt(ctrPct)} %`,
+      position: pos,
+      label: `${n.label}'s search: ${fmt(imp)} impressions, ${fmt(clk)} clicks, ${fmt(ctrPct)} % click-through${pos ? `, average position ${pos}` : ''}`,
+    };
+  }
+
   return {
     label: n.label,
     about: NAMED_ABOUT[n.label] ?? '',
@@ -294,6 +434,9 @@ export function spotlight(n: NamedRow, windowTo: string | null): Spotlight | nul
     tiles,
     people: peopleBar,
     ai: aiBar,
+    crawl,
+    search,
+    spoofedPct: has('aiSpoofedPct') ? v('aiSpoofedPct')! : null,
   };
 }
 

@@ -14,6 +14,11 @@
           }
         </div>
       }
+      <dl class="kpis">
+        @for (k of v.kpis; track k.label) {
+          <div class="kpi"><dt>{{ k.label }}</dt>&ngsp;<dd class="mono">{{ k.value }}</dd></div>
+        }
+      </dl>
     </section>
 
     @if (v.early) {
@@ -52,6 +57,32 @@
       </section>
     }
 
+    @if (v.ratios.length) {
+      <section class="stack loose" aria-labelledby="ratios">
+        <div class="group-head">
+          <h2 class="display h2 small" id="ratios">Worked out from the shares</h2>
+          <span class="note">each named site's own numbers, divided; nothing estimated</span>
+        </div>
+        <div class="ratios">
+          @for (r of v.ratios; track r.key) {
+            <article class="card ratio">
+              <h3>{{ r.title }}</h3>
+              <p class="muted ratio-about">{{ r.about }}</p>
+              <ul class="ratio-rows">
+                @for (x of r.rows; track x.label; let i = $index) {
+                  <li>
+                    <span class="ratio-site">{{ x.label }}</span>&ngsp;
+                    <span class="mono ratio-num">{{ x.text }}</span>
+                    <span class="ratio-track" aria-hidden="true"><span class="ratio-bar" [class.n1]="i > 0" [style.width.%]="x.pct" [title]="x.label + ': ' + x.text"></span></span>
+                  </li>
+                }
+              </ul>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
     @for (g of v.groups; track g.title; let gi = $index) {
       <section class="metric-group" [attr.aria-labelledby]="'group-' + gi">
         <div class="group-head">
@@ -66,9 +97,14 @@
                 @if (!v.early) {
                   <th scope="col">Spread</th>
                 }
+                @if (v.early) {
+                  <th scope="col">Named sites compared</th>
+                }
                 <th scope="col">25th, 50th and 75th percentile</th>
-                @for (n of v.named; track n.label) {
-                  <th scope="col">{{ n.label }}</th>
+                @if (!v.early) {
+                  @for (n of v.named; track n.label) {
+                    <th scope="col">{{ n.label }}</th>
+                  }
                 }
                 @if (!v.early) {
                   <th scope="col">Sites</th>
@@ -99,6 +135,23 @@
                       <div class="scale" [attr.data-hi]="r.hiText"></div>
                     </td>
                   }
+                  @if (v.early) {
+                    <td class="compare-cell">
+                      @if (r.bars.length) {
+                        <ul class="hbars">
+                          @for (b of r.bars; track b.label; let i = $index) {
+                            <li>
+                              <span class="hbar-site">{{ b.label }}</span>&ngsp;
+                              <span class="hbar-track" aria-hidden="true"><span class="hbar" [class.n1]="i > 0" [style.width.%]="b.pct" [title]="b.label + ': ' + b.text"></span></span>
+                              <span class="mono hbar-num">{{ b.text }}</span>
+                            </li>
+                          }
+                        </ul>
+                      } @else {
+                        <span class="muted">no named site reports this yet</span>
+                      }
+                    </td>
+                  }
                   <td class="num">
                     @if (r.shown) {
                       {{ r.quartiles }}
@@ -106,14 +159,16 @@
                       <span class="muted">{{ r.waiting }}</span>
                     }
                   </td>
-                  @for (c of r.named; track c.label; let i = $index) {
-                    <td class="num named" [class.n1]="i > 0">
-                      @if (c.text) {
-                        {{ c.label }} {{ c.text }}
-                      } @else {
-                        <span class="muted">{{ c.label }}: no share yet</span>
-                      }
-                    </td>
+                  @if (!v.early) {
+                    @for (c of r.named; track c.label; let i = $index) {
+                      <td class="num named" [class.n1]="i > 0">
+                        @if (c.text) {
+                          {{ c.label }} {{ c.text }}
+                        } @else {
+                          <span class="muted">{{ c.label }}: no share yet</span>
+                        }
+                      </td>
+                    }
                   }
                   @if (!v.early) {
                     <td class="num sites">{{ r.sitesText }}</td>

@@ -29,6 +29,25 @@ describe('Home', () => {
     expect(text(el.querySelector('app-spotlight .spot-name')!)).toBe('synacl.com');
   });
 
+  it('makes the case under the hero, with live numbers when the benchmark answered', async () => {
+    const el = await render({ ok: true, data: sample({ sites: 3, named: [
+      { label: 'synacl.com', week: '2026-W42', metrics: { people: { value: 223 }, aiSearchFetches: { value: 184 } } },
+    ] }) });
+    const items = [...el.querySelectorAll('.moat-item')].map(text);
+    expect(items.length).toBe(4);
+    expect(items[0]).toContain('13 vendor IP lists');
+    expect(items[1]).toContain("synacl.com's access log showed 184 verified AI agent fetches");
+    expect(items[3]).toContain('4 sites sharing');
+    expect(el.textContent).not.toMatch(/\b(only|first) (tool|one)\b/i);
+  });
+
+  it('the case still stands without the service', async () => {
+    const el = await render({ ok: false });
+    const items = [...el.querySelectorAll('.moat-item')].map(text);
+    expect(items.length).toBe(4);
+    expect(items[3]).toContain('open benchmark A benchmark');
+  });
+
   it('leaves the real week out when the service did not answer', async () => {
     const el = await render({ ok: false });
     expect(el.querySelector('#real-week')).toBeNull();

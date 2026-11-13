@@ -3,7 +3,7 @@ import { afterNextRender, Component, computed, inject, input, signal } from '@an
 import { RouterLink } from '@angular/router';
 import { API_BASE, Benchmark } from '../api';
 import { SpotlightCard } from '../benchmark/spotlight';
-import { spotlights } from '../benchmark/view';
+import { fmt, spotlights } from '../benchmark/view';
 import { CopyButton } from '../copy-button';
 import { jsonLd, ORIGIN, pageMeta } from '../seo';
 import { BenchmarkLoad, fetchBenchmark } from './benchmark';
@@ -17,6 +17,13 @@ interface Verdict {
   kind: 'ok' | 'bad' | 'person';
   word: string;
   why: string;
+}
+
+interface MoatPoint {
+  num: string;
+  unit: string;
+  title: string;
+  text: string;
 }
 
 /** Shown as an open list and written into the page's FAQPage data, so the two never differ. */
@@ -52,10 +59,35 @@ export class Home {
   /** From the route resolver: the same snapshot the benchmark page uses. */
   readonly benchmark = input<BenchmarkLoad>();
   private readonly live = signal<Benchmark | null>(null);
+  private readonly data = computed(() => this.live() ?? (this.benchmark()?.ok ? (this.benchmark() as { data: Benchmark }).data : null));
   /** The busiest named site's latest week, or null when the benchmark is not there. */
   protected readonly lead = computed(() => {
-    const b = this.live() ?? (this.benchmark()?.ok ? (this.benchmark() as { data: Benchmark }).data : null);
+    const b = this.data();
     return b ? (spotlights(b)[0] ?? null) : null;
+  });
+
+  /**
+   * The case for siteread, one number per point, each true today. The list counts come from
+   * packages/verify/src/ip-ranges.js SOURCES (15 agents; Anthropic serves one list for its three).
+   * The last two points use the live benchmark when it answered.
+   */
+  protected readonly moat = computed((): MoatPoint[] => {
+    const b = this.data();
+    const lead = this.lead();
+    const sharing = b ? b.sites + b.named.filter(n => n.week).length : null;
+    const ai = lead?.ai?.total;
+    return [
+      { num: '13', unit: 'vendor IP lists', title: 'Verified, not guessed',
+        text: 'Every request that claims to be one of 15 crawlers, from ChatGPT-User and ClaudeBot to Googlebot, is checked against the IP list its vendor publishes. Off the list means spoofed, and it is left out.' },
+      { num: '0', unit: 'lines of JavaScript', title: 'Sees what a tag never does',
+        text: ai != null && lead
+          ? `AI agents run no script, so an analytics tag counts none of them. ${lead.label}'s access log showed ${fmt(ai)} verified AI agent fetches in its latest shared week.`
+          : 'AI agents run no script, so an analytics tag counts none of them. siteread reads the access log your server already writes.' },
+      { num: '0', unit: 'visitor IPs sent', title: 'Your log stays on your machine',
+        text: 'The CLI and the skill read files on your disk. A share, only on your yes, is a week of totals: never a hostname, a URL or a visitor IP.' },
+      { num: sharing != null ? fmt(sharing) : 'open', unit: sharing != null ? (sharing === 1 ? 'site sharing' : 'sites sharing') : 'benchmark', title: 'A benchmark that grows with every share',
+        text: 'Verified weekly numbers, published with n on every row, free as JSON. Each site that shares makes the comparison sharper for the next one.' },
+    ];
   });
 
   protected readonly check = 'npx siteread check <ip> "<user-agent>"';

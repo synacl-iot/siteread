@@ -2,7 +2,7 @@
 
   <section class="hero">
     <div class="stack loose hero-copy">
-      <p class="eyebrow">For people who run their own site</p>
+      <p class="eyebrow">Verified AI-agent and crawler traffic, from the log you already have</p>
       <h1 class="display h1 hero-title">Who read your site this week, was it good, and what to write next</h1>
       <p class="lede">From your server's access log and a Search Console export. Every crawler is checked against the list its vendor publishes, so a scanner wearing ChatGPT's user-agent is not counted as ChatGPT. It runs on your machine and sends nothing unless you choose to share.</p>
       <div class="row">
@@ -29,6 +29,22 @@
       </ol>
       <figcaption id="logpanel-cap" class="logpanel-foot mono">5 requests · 2 verified · 2 spoofed and not counted · 1 person</figcaption>
     </figure>
+  </section>
+
+  <section class="stack loose moat" aria-labelledby="why">
+    <div class="stack">
+      <p class="eyebrow">Why siteread</p>
+      <h2 id="why" class="display h2">What a tag can't tell you, checked against the vendors' own lists</h2>
+    </div>
+    <ol class="moat-grid">
+      @for (m of moat(); track m.title) {
+        <li class="moat-item">
+          <span class="mono moat-num">{{ m.num }}@if (m.unit) {&ngsp;<span>{{ m.unit }}</span>}</span>&ngsp;
+          <h3>{{ m.title }}</h3>
+          <p>{{ m.text }}</p>
+        </li>
+      }
+    </ol>
   </section>
 
   <section class="stack">
