@@ -77,9 +77,9 @@ describe('benchmarkView', () => {
     expect(v.groups.map(g => g.rows.map(r => r.key))).toEqual([['people'], ['aiSpoofedPct'], ['gscClicks']]);
     expect(v.early).toBe(false);
     expect(v.named).toEqual([{ label: 'synacl.com', week: '2026-W42' }]);
-    expect(v.namedText).toBe("synacl.com (the site siteread was first built to read) is the one named site, by its owner's choice.");
+    expect(v.namedText).toBe('synacl.com (the site siteread was first built to read) shares under its own name.');
     expect(v.namedLabels).toBe('synacl.com');
-    expect(v.windowText).toBe("each site's latest share, 2026-W39 to 2026-W42");
+    expect(v.windowText).toBe('latest share per site from 2026-W39 to 2026-W42');
     expect(v.builtText).toBe('built 2026-10-22 09:00 UTC');
     expect(v.history).toEqual([
       { label: 'W41', week: '2026-W41', sites: 12, pct: 80 },
@@ -117,8 +117,8 @@ describe('several named sites', () => {
 
   it('names them in one sentence, each with its note', () => {
     expect(namedSentence(['synacl.com', 'siteread.dev'])).toBe(
-      "2 sites are named, by their owner's choice: synacl.com (the site siteread was first built to read) and siteread.dev (this site, read by siteread itself).");
-    expect(namedSentence(['a.example', 'b.example', 'c.example'])).toBe("3 sites are named, by their owner's choice: a.example, b.example and c.example.");
+      '2 sites share under their own names. They are synacl.com (the site siteread was first built to read) and siteread.dev (siteread’s own site).');
+    expect(namedSentence(['a.example', 'b.example', 'c.example'])).toBe('3 sites share under their own names. They are a.example, b.example and c.example.');
   });
 
   it('gives each its own cell and marker, and a site with no share yet says so', () => {
@@ -201,8 +201,8 @@ describe('spotlight', () => {
   it('headline counts sum the named sites’ latest weeks', () => {
     const k = kpis(sample({ sites: 0, named: [synacl, { label: 'small.dev', week: '2026-W46', metrics: { people: { value: 14 }, aiTrainingFetches: { value: 2 } } }] }));
     expect(k.map(x => `${x.value} ${x.label}`)).toEqual([
-      '0 / 10 anonymous sites toward the first spread', '2 named sites sharing',
-      '237 people, the named sites’ latest weeks', '377 verified AI agent fetches, same weeks', '2 weeks on record',
+      '0 / 10 anonymous sites so far', '2 named sites sharing',
+      '237 people in the named sites’ latest weeks', '377 verified AI agent fetches in those weeks', '2 weeks on record',
     ]);
   });
 

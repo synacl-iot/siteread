@@ -56,6 +56,10 @@ cap is spent, stop and say so.
   site's own numbers (`ratios()` in `benchmark/view.ts`: nothing estimated), per-row bars comparing the named
   sites while early, and in each spotlight a "who crawled more" bar and a Search Console funnel. Every bar has
   its number printed as text and a `title`.
+  Copy style (owner, 2026-11-13: "human and clear cut, not poetry with a comma in between"): one idea per
+  sentence, subject, verb, object. No comma-joined fragments, no colons or semicolons for effect, no taglines
+  like "verified, not guessed". Labels are plain phrases. The memo example on the home page is the skill's real
+  output, so it keeps the skill's style.
 - The weekly cap in `CHARTER.md` applies since the initial release (2026-10-22). It is real: log the week's spend
   in its table, stop when spent, and say so.
 - History before this repo existed lives in the Synacl workspace's memory (`project_siteread_side_tool`,

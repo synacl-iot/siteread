@@ -25,7 +25,7 @@ const NPM = 'https://www.npmjs.com/package/siteread';
     <router-outlet />
     <footer class="site-footer">
       <div class="wrap">
-        <p>siteread is free and open source, MIT licensed.</p>
+        <p>siteread is free and open source under the MIT licence.</p>
         <ul class="links">
           <li><a [href]="npm">npm package</a></li>
           <li><a [href]="source">Source on GitHub</a></li>

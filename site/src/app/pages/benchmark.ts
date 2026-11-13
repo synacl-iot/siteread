@@ -89,12 +89,12 @@ export class BenchmarkPage {
         if (load.ok) this.live.set(load.data);
       });
     });
-    const description = 'How sites compare: anonymous weekly numbers from sites that chose to share, with the number of sites printed on every row. People by source, AI agents verified against vendor IP lists, search.';
+    const description = 'How sites compare. Sites share anonymous weekly numbers. Every row shows how many sites it is based on. The numbers cover people by source, verified AI agents and search.';
     pageMeta({ title: 'How sites compare · siteread', description, path: '/benchmark' });
     jsonLd('dataset', {
       '@type': 'Dataset',
       name: 'siteread benchmark: how small sites compare, week by week',
-      description: description + ' Quartiles appear once enough anonymous sites report a number; named sites show their own values.',
+      description: description + ' Quartiles appear once enough anonymous sites report a number. Named sites show their own values.',
       url: `${ORIGIN}/benchmark`,
       isAccessibleForFree: true,
       creator: { '@type': 'Organization', name: 'siteread', url: ORIGIN },

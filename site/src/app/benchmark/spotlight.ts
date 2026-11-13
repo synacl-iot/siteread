@@ -43,7 +43,7 @@ import { Segment, Spotlight } from './view';
       }
       @if (s.search; as f) {
         <div class="seg-block funnel">
-          <p class="seg-title"><strong>Search, impressions to clicks</strong> <span class="muted mono">{{ f.ctr }} click-through@if (f.position) { · position {{ f.position }}}</span></p>
+          <p class="seg-title"><strong>Search impressions and clicks</strong> <span class="muted mono">{{ f.ctr }} click-through@if (f.position) { · position {{ f.position }}}</span></p>
           <div class="funnel-rows" role="img" [attr.aria-label]="f.label">
             <div class="funnel-row"><span class="funnel-name">Impressions</span>&ngsp;<div class="funnel-track"><div class="funnel-bar s1" style="width: 100%" [title]="f.impressions + ' impressions'"></div></div>&ngsp;<span class="mono funnel-num">{{ f.impressions }}</span></div>
             <div class="funnel-row"><span class="funnel-name">Clicks</span>&ngsp;<div class="funnel-track"><div class="funnel-bar s2" [style.width.%]="f.clickPct" [title]="f.clicks + ' clicks, ' + f.ctr"></div></div>&ngsp;<span class="mono funnel-num">{{ f.clicks }}</span></div>

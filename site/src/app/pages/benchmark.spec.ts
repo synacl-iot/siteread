@@ -28,7 +28,7 @@ describe('BenchmarkPage', () => {
   it('prints n, the quartiles and the named row in the HTML', async () => {
     const el = await render({ ok: true, data: sample() });
     expect(text(el.querySelector('.bench-meta')!)).toBe(
-      "14 anonymous sites + synacl.com · each site's latest share, 2026-W39 to 2026-W42 · built 2026-10-22 09:00 UTC");
+      '14 anonymous sites + synacl.com · latest share per site from 2026-W39 to 2026-W42 · built 2026-10-22 09:00 UTC');
     const people = el.querySelector('.metrics tbody tr')!;
     expect(text(people)).toContain('41 · 118 · 356');
     expect(text(people)).toContain('synacl.com 96 · 44th');
@@ -74,7 +74,7 @@ describe('BenchmarkPage', () => {
       ],
     }) });
     expect(text(el.querySelector('.bench-meta')!)).toContain('14 anonymous sites + synacl.com and siteread.dev');
-    expect(text(el.querySelector('.bench-intro')!)).toContain('2 sites are named');
+    expect(text(el.querySelector('.bench-intro')!)).toContain('2 sites share under their own names');
     const people = el.querySelector('.metrics tbody tr')!;
     expect(people.querySelectorAll('.marker').length).toBe(1);
     expect(text(people)).toContain('synacl.com 96 · 44th');

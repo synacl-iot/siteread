@@ -5,7 +5,7 @@
       <h1 class="display h1 small">How sites compare</h1>
       <p class="mono muted bench-meta">{{ v.sites }} anonymous {{ v.sites === 1 ? 'site' : 'sites' }}@if (v.named.length) { + {{ v.namedLabels }}} · {{ v.windowText }} · {{ v.builtText }}</p>
       @if (!v.early) {
-        <p class="bench-intro">Weekly numbers that sites chose to send with <code>siteread share</code>. A metric shows its spread once {{ v.minSites }} anonymous sites report it; until then it shows the count.@if (v.namedText) { {{ v.namedText }}} Every other site is anonymous.</p>
+        <p class="bench-intro">Sites send these weekly numbers with <code>siteread share</code>. A metric shows its spread once {{ v.minSites }} anonymous sites report it. Until then it shows the count.@if (v.namedText) { {{ v.namedText }}} Every other site is anonymous.</p>
         <div class="legend" aria-hidden="true">
           <div><span class="key-box"></span>middle half of sites (25th to 75th percentile)</div>
           <div><span class="key-median"></span>median</div>
@@ -33,7 +33,7 @@
           </div>
           <p class="muted">anonymous sites needed before any spread is shown</p>
         </div>
-        <p>This benchmark starts small and says so. With fewer than {{ v.minSites }} anonymous sites, a published median or quartile could give away another site's exact number, so each row shows only how many sites report it.@if (v.named.length === 1) { {{ v.named[0].label }}, the one named site, shows its own numbers from week one.} @else if (v.named.length > 1) { The named sites show their own numbers from week one.}</p>
+        <p>The benchmark is small for now. With fewer than {{ v.minSites }} anonymous sites, a median could reveal one site's exact number. So each row only shows how many sites report it.@if (v.named.length === 1) { {{ v.named[0].label }} shares under its own name. It shows its own numbers from the first week.} @else if (v.named.length > 1) { The named sites show their own numbers from the first week.}</p>
       </section>
     }
 
@@ -46,8 +46,8 @@
     @if (v.spotlights.length) {
       <section class="stack loose" aria-labelledby="spotlight">
         <div class="group-head">
-          <h2 class="display h2 small" id="spotlight">{{ v.spotlights.length === 1 ? 'The named site' : 'The named sites' }}, latest week</h2>
-          <span class="note">shared by their owners, under their own names</span>
+          <h2 class="display h2 small" id="spotlight">{{ v.spotlights.length === 1 ? 'Latest week from the named site' : 'Latest week from each named site' }}</h2>
+          <span class="note">shared by their owners under their own names</span>
         </div>
         <div class="spots">
           @for (s of v.spotlights; track s.label) {
@@ -61,7 +61,7 @@
       <section class="stack loose" aria-labelledby="ratios">
         <div class="group-head">
           <h2 class="display h2 small" id="ratios">Worked out from the shares</h2>
-          <span class="note">each named site's own numbers, divided; nothing estimated</span>
+          <span class="note">ratios of each named site's own numbers</span>
         </div>
         <div class="ratios">
           @for (r of v.ratios; track r.key) {
@@ -93,7 +93,7 @@
           <table class="metrics" [class.early]="v.early">
             <thead class="visually-hidden">
               <tr>
-                <th scope="col">Number, last 7 days</th>
+                <th scope="col">Number for the last 7 days</th>
                 @if (!v.early) {
                   <th scope="col">Spread</th>
                 }
@@ -183,7 +183,7 @@
 
     <section class="stack">
       <div class="group-head">
-        <h2 class="display h2 small">Sites that shared, by week</h2>
+        <h2 class="display h2 small">Sites that shared each week</h2>
         @if (v.named.length) {
           <span class="note">named sites included</span>
         }
@@ -222,8 +222,8 @@
     <section class="card big grid wide add">
       <div class="stack add-text">
         <h2 class="display h2 small">{{ early ? 'Be one of the first ' + minSites : 'Add your site' }}</h2>
-        <p class="muted">Run a digest, then look at exactly what would be sent. Nothing leaves without a yes, and you see where each number stands among the published quartiles.</p>
-        <a routerLink="/privacy">What share sends, and what it never does</a>
+        <p class="muted">Run a digest. Then check exactly what would be sent. Nothing leaves without your yes. You also see where each number ranks.</p>
+        <a routerLink="/privacy">What share sends and what it never sends</a>
       </div>
       <div class="stack add-text">
         <pre class="code">{{ commands }}</pre>

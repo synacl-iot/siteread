@@ -22,7 +22,7 @@ export interface GroupSpec {
 export const GROUPS: readonly GroupSpec[] = [
   {
     title: 'People', note: 'from access logs', rows: [
-      { key: 'people', label: 'People', about: 'browsers that loaded a page and its assets, never a scanner path' },
+      { key: 'people', label: 'People', about: 'real browsers that loaded a page and its assets' },
       { key: 'peopleFromSearch', label: 'From search', about: 'first visit came from a search engine' },
       { key: 'peopleFromAi', label: 'From AI assistants', about: 'first visit came from ChatGPT, Perplexity, Claude and others' },
       { key: 'peopleFromSocial', label: 'From social', about: 'first visit came from a social site or forum' },
@@ -33,16 +33,16 @@ export const GROUPS: readonly GroupSpec[] = [
       { key: 'aiAnswerFetches', label: 'Reading for a person', about: 'ChatGPT-User, Perplexity-User, Claude-User page fetches' },
       { key: 'aiSearchFetches', label: 'Search indexing', about: 'OAI-SearchBot, PerplexityBot, Claude-SearchBot, Applebot' },
       { key: 'aiTrainingFetches', label: 'Training crawls', about: 'GPTBot, ClaudeBot' },
-      { key: 'aiSpoofedPct', label: 'Spoofed AI traffic', about: 'requests under an AI user-agent from outside the vendor’s list, whole log', unit: '%' },
+      { key: 'aiSpoofedPct', label: 'Spoofed AI traffic', about: 'AI user-agent requests from IPs outside the vendor’s list', unit: '%' },
     ],
   },
   {
     title: 'Search', note: 'Search Console and verified search crawlers', rows: [
-      { key: 'searchEngineFetches', label: 'Search crawler fetches', about: 'Googlebot and bingbot page fetches, verified' },
-      { key: 'gscImpressions', label: 'Impressions', about: 'Search Console, the same 7 days' },
-      { key: 'gscClicks', label: 'Clicks', about: 'Search Console, the same 7 days' },
+      { key: 'searchEngineFetches', label: 'Search crawler fetches', about: 'verified Googlebot and bingbot page fetches' },
+      { key: 'gscImpressions', label: 'Impressions', about: 'Search Console, same 7 days' },
+      { key: 'gscClicks', label: 'Clicks', about: 'Search Console, same 7 days' },
       { key: 'gscCtrPct', label: 'Click-through rate', about: 'Search Console', unit: '%' },
-      { key: 'gscPosition', label: 'Position', about: 'impression-weighted; lower is better' },
+      { key: 'gscPosition', label: 'Position', about: 'weighted by impressions (lower is better)' },
     ],
   },
 ];
@@ -50,7 +50,7 @@ export const GROUPS: readonly GroupSpec[] = [
 // How the page introduces each named site; a label not listed here is named without a note.
 export const NAMED_ABOUT: Readonly<Record<string, string>> = {
   'synacl.com': 'the site siteread was first built to read',
-  'siteread.dev': 'this site, read by siteread itself',
+  'siteread.dev': 'siteread’s own site',
 };
 
 export interface NamedCell {
@@ -196,9 +196,9 @@ function compareBars(named: readonly NamedRow[], own: ({ value: number } | undef
 export function namedSentence(labels: readonly string[]): string {
   const say = (l: string) => (NAMED_ABOUT[l] ? `${l} (${NAMED_ABOUT[l]})` : l);
   if (!labels.length) return '';
-  if (labels.length === 1) return `${say(labels[0])} is the one named site, by its owner's choice.`;
+  if (labels.length === 1) return `${say(labels[0])} shares under its own name.`;
   const list = labels.map(say);
-  return `${labels.length} sites are named, by their owner's choice: ${list.slice(0, -1).join(', ')} and ${list.at(-1)}.`;
+  return `${labels.length} sites share under their own names. They are ${list.slice(0, -1).join(', ')} and ${list.at(-1)}.`;
 }
 
 export function benchmarkView(b: Benchmark): BenchmarkView {
@@ -221,7 +221,7 @@ export function benchmarkView(b: Benchmark): BenchmarkView {
     named: named.map(n => ({ label: n.label, week: n.week })),
     namedText: namedSentence(named.map(n => n.label)),
     namedLabels: named.length > 1 ? `${named.slice(0, -1).map(n => n.label).join(', ')} and ${named.at(-1)!.label}` : (named[0]?.label ?? ''),
-    windowText: b.window ? `each site's latest share, ${b.window.from} to ${b.window.to}` : 'no shares yet',
+    windowText: b.window ? `latest share per site from ${b.window.from} to ${b.window.to}` : 'no shares yet',
     builtText: `built ${utcMinute(b.generatedAt)}`,
     early: !Object.values(b.metrics).some(m => m.p50 != null),
     groups,
@@ -246,12 +246,12 @@ export function kpis(b: Benchmark): Kpi[] {
   const named = sharing(b);
   const sum = (f: (n: NamedRow) => number | undefined) => named.reduce((s, n) => s + (f(n) ?? 0), 0);
   const out: Kpi[] = [
-    { value: `${fmt(b.sites)} / ${fmt(b.minSites)}`, label: 'anonymous sites toward the first spread' },
+    { value: `${fmt(b.sites)} / ${fmt(b.minSites)}`, label: 'anonymous sites so far' },
     { value: fmt(named.length), label: named.length === 1 ? 'named site sharing' : 'named sites sharing' },
   ];
   if (named.length) {
-    out.push({ value: fmt(sum(n => val(n, 'people'))), label: 'people, the named sites’ latest weeks' });
-    out.push({ value: fmt(sum(aiOf)), label: 'verified AI agent fetches, same weeks' });
+    out.push({ value: fmt(sum(n => val(n, 'people'))), label: 'people in the named sites’ latest weeks' });
+    out.push({ value: fmt(sum(aiOf)), label: 'verified AI agent fetches in those weeks' });
   }
   out.push({ value: fmt(b.history.length), label: b.history.length === 1 ? 'week on record' : 'weeks on record' });
   return out;
@@ -270,17 +270,17 @@ const share = (part: number | undefined, whole: number | undefined) =>
   part === undefined || !whole ? undefined : (part / whole) * 100;
 
 const RATIOS: readonly RatioSpec[] = [
-  { key: 'fromSearch', title: 'People from search', about: 'share of people whose first visit came from a search engine', unit: '%',
+  { key: 'fromSearch', title: 'People from search', about: 'Share of people whose first visit came from a search engine', unit: '%',
     of: n => share(val(n, 'peopleFromSearch'), val(n, 'people')) },
-  { key: 'fromAi', title: 'People from AI assistants', about: 'share of people who first came from ChatGPT, Perplexity, Claude and others', unit: '%',
+  { key: 'fromAi', title: 'People from AI assistants', about: 'Share of people whose first visit came from an AI assistant', unit: '%',
     of: n => share(val(n, 'peopleFromAi'), val(n, 'people')) },
-  { key: 'aiPerPerson', title: 'AI fetches per person', about: 'verified AI agent page fetches for every person who read a page', unit: 'x',
+  { key: 'aiPerPerson', title: 'AI fetches per person', about: 'Verified AI agent fetches for each person who read a page', unit: 'x',
     of: n => (val(n, 'people') ? (aiOf(n) ?? 0) / val(n, 'people')! : undefined) },
-  { key: 'aiVsSearch', title: 'AI fetches per search-engine fetch', about: 'verified AI agent fetches against verified Googlebot and bingbot fetches; above 1 × AI agents crawled more', unit: 'x',
+  { key: 'aiVsSearch', title: 'AI fetches per search-engine fetch', about: 'Verified AI agent fetches for each verified Googlebot or bingbot fetch. Above 1 × means AI agents crawled more.', unit: 'x',
     of: n => (val(n, 'searchEngineFetches') ? (aiOf(n) ?? 0) / val(n, 'searchEngineFetches')! : undefined) },
-  { key: 'answerShare', title: 'AI fetches made for a person', about: 'share of verified AI fetches that were an assistant reading for someone, not a crawl', unit: '%',
+  { key: 'answerShare', title: 'AI fetches made for a person', about: 'Share of verified AI fetches where an assistant read a page for someone', unit: '%',
     of: n => share(val(n, 'aiAnswerFetches'), aiOf(n)) },
-  { key: 'spoofed', title: 'Spoofed AI traffic', about: 'requests under an AI user-agent from outside the vendor’s list', unit: '%',
+  { key: 'spoofed', title: 'Spoofed AI traffic', about: 'Share of AI user-agent requests from IPs outside the vendor’s list', unit: '%',
     of: n => val(n, 'aiSpoofedPct') },
   { key: 'ctr', title: 'Search click-through', about: 'Search Console clicks per impression', unit: '%',
     of: n => val(n, 'gscCtrPct') ?? share(val(n, 'gscClicks'), val(n, 'gscImpressions')) },
@@ -366,13 +366,13 @@ export function spotlight(n: NamedRow, windowTo: string | null): Spotlight | nul
   const v = (k: string) => n.metrics[k]?.value;
   const has = (k: string) => typeof v(k) === 'number';
   const tiles: Tile[] = [];
-  if (has('people')) tiles.push({ label: 'People', value: fmt(v('people')!), note: 'real browsers, scanners left out' });
+  if (has('people')) tiles.push({ label: 'People', value: fmt(v('people')!), note: 'real browsers only' });
   const aiKeys = ['aiAnswerFetches', 'aiSearchFetches', 'aiTrainingFetches'];
   const aiTotal = aiKeys.reduce((s, k) => s + (v(k) ?? 0), 0);
-  if (aiKeys.some(has)) tiles.push({ label: 'AI agent fetches', value: fmt(aiTotal), note: 'verified against vendor IP lists' });
+  if (aiKeys.some(has)) tiles.push({ label: 'AI agent fetches', value: fmt(aiTotal), note: 'checked against vendor IP lists' });
   if (has('gscClicks')) tiles.push({ label: 'Search clicks', value: fmt(v('gscClicks')!), note: has('gscPosition') ? `average position ${fmt(v('gscPosition')!)}` : 'Search Console' });
-  else if (has('searchEngineFetches')) tiles.push({ label: 'Search crawler fetches', value: fmt(v('searchEngineFetches')!), note: 'Googlebot and bingbot, verified' });
-  if (has('aiSpoofedPct')) tiles.push({ label: 'Spoofed AI traffic', value: `${fmt(v('aiSpoofedPct')!)} %`, note: 'claimed an AI user-agent, came from elsewhere' });
+  else if (has('searchEngineFetches')) tiles.push({ label: 'Search crawler fetches', value: fmt(v('searchEngineFetches')!), note: 'verified Googlebot and bingbot' });
+  if (has('aiSpoofedPct')) tiles.push({ label: 'Spoofed AI traffic', value: `${fmt(v('aiSpoofedPct')!)} %`, note: 'AI user-agent from a non-vendor IP' });
 
   const people = v('people') ?? 0;
   let peopleBar: Spotlight['people'] = null;

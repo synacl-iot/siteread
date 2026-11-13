@@ -30,23 +30,23 @@ interface MoatPoint {
 export const FAQ: readonly { q: string; a: string }[] = [
   {
     q: 'Do I need to add a script or tag to my site?',
-    a: 'No. siteread reads the access log your web server already writes (nginx or Apache combined, Caddy’s JSON, or an nginx JSON log_format; gzipped is fine) and, if you have one, a Search Console export. AI agents and crawlers run no JavaScript, so a tag never sees them; the log does.',
+    a: 'No. siteread reads the access log your server already writes. It supports nginx and Apache combined logs, Caddy JSON and nginx JSON. Gzipped logs work too. You can add a Search Console export if you have one. AI agents and crawlers run no JavaScript. A tag never sees them. The log does.',
   },
   {
     q: 'How does it know a crawler is real?',
-    a: 'Every vendor that publishes the IP ranges its bots use, from Google and Bing to OpenAI, Anthropic, Perplexity and Apple, has its list checked. A request with an AI user-agent from outside that list is counted as spoofed, not as the AI. Where a vendor publishes no list, the verdict is unknown rather than a guess.',
+    a: 'siteread uses the IP lists that vendors publish for their bots. These include Google, Bing, OpenAI, Anthropic, Perplexity and Apple. A request with an AI user-agent from an IP outside the list is spoofed. It is not counted as that AI. If a vendor publishes no list, the verdict is unknown. siteread does not guess.',
   },
   {
-    q: 'What does it send, and to whom?',
-    a: 'Nothing by default. It runs on your machine and only downloads the public IP lists. If you choose to run share, it sends one week of totals to the benchmark, prints the exact payload first, and asks before sending. Hostnames, URLs and visitor IPs never leave your machine.',
+    q: 'Does it send my data anywhere?',
+    a: 'Nothing by default. siteread runs on your machine and only downloads the public IP lists. Sharing is opt-in. A share sends one week of totals to the benchmark. siteread prints the exact payload and asks before it sends. Hostnames, URLs and visitor IPs never leave your machine.',
   },
   {
     q: 'Do I need Claude Code?',
-    a: 'No. The siteread CLI gives you the verdicts and the weekly digest as JSON on its own. The seo-read skill for Claude Code turns that digest into a dated memo with what to do next.',
+    a: 'No. The siteread CLI works on its own. It gives you the verdicts and the weekly digest as JSON. The seo-read skill for Claude Code turns the digest into a dated memo with next steps.',
   },
   {
     q: 'What does it cost?',
-    a: 'The tool is free and open source under the MIT licence, and so is the public benchmark.',
+    a: 'Nothing. The tool is free and open source under the MIT licence. The public benchmark is free too.',
   },
 ];
 
@@ -77,16 +77,16 @@ export class Home {
     const sharing = b ? b.sites + b.named.filter(n => n.week).length : null;
     const ai = lead?.ai?.total;
     return [
-      { num: '13', unit: 'vendor IP lists', title: 'Verified, not guessed',
-        text: 'Every request that claims to be one of 15 crawlers, from ChatGPT-User and ClaudeBot to Googlebot, is checked against the IP list its vendor publishes. Off the list means spoofed, and it is left out.' },
-      { num: '0', unit: 'lines of JavaScript', title: 'Sees what a tag never does',
+      { num: '13', unit: 'vendor IP lists', title: 'Every crawler is checked',
+        text: 'siteread checks 15 crawlers, including ChatGPT-User, ClaudeBot and Googlebot. Each request is matched against the IP list its vendor publishes. If the IP is not on the list, the request is spoofed. It is not counted.' },
+      { num: '0', unit: 'lines of JavaScript', title: 'Sees what a tag misses',
         text: ai != null && lead
-          ? `AI agents run no script, so an analytics tag counts none of them. ${lead.label}'s access log showed ${fmt(ai)} verified AI agent fetches in its latest shared week.`
-          : 'AI agents run no script, so an analytics tag counts none of them. siteread reads the access log your server already writes.' },
+          ? `AI agents do not run scripts. An analytics tag never counts them. Your access log does. ${lead.label} logged ${fmt(ai)} verified AI agent fetches in its latest shared week.`
+          : 'AI agents do not run scripts. An analytics tag never counts them. Your access log does.' },
       { num: '0', unit: 'visitor IPs sent', title: 'Your log stays on your machine',
-        text: 'The CLI and the skill read files on your disk. A share, only on your yes, is a week of totals: never a hostname, a URL or a visitor IP.' },
-      { num: sharing != null ? fmt(sharing) : 'open', unit: sharing != null ? (sharing === 1 ? 'site sharing' : 'sites sharing') : 'benchmark', title: 'A benchmark that grows with every share',
-        text: 'Verified weekly numbers, published with n on every row, free as JSON. Each site that shares makes the comparison sharper for the next one.' },
+        text: 'The CLI and the skill read files on your disk. Sharing is optional. A share is one week of totals. It never contains a hostname, a URL or a visitor IP.' },
+      { num: sharing != null ? fmt(sharing) : 'free', unit: sharing != null ? (sharing === 1 ? 'site sharing' : 'sites sharing') : 'public data', title: 'An open benchmark',
+        text: 'Sites share verified weekly numbers. Every row shows how many sites it is based on. The data is free as JSON. Each new share makes the comparison better.' },
     ];
   });
 
@@ -96,21 +96,21 @@ export class Home {
   protected readonly posts = POSTS.slice(0, 2);
 
   protected readonly lines: readonly Verdict[] = [
-    { ip: '160.79.104.10', claim: 'Claude-User/1.0', path: '/docs/', kind: 'ok', word: 'verified', why: 'in claude.com/crawling/bots.json' },
-    { ip: '203.0.113.9', claim: 'ChatGPT-User/1.0', path: '/pricing/', kind: 'bad', word: 'spoofed', why: 'not in openai.com/chatgpt-user.json' },
-    { ip: '66.249.66.1', claim: 'Googlebot/2.1', path: '/sitemap.xml', kind: 'ok', word: 'verified', why: 'in Google’s googlebot.json' },
-    { ip: '198.51.100.23', claim: 'ClaudeBot/1.0', path: '/.env', kind: 'bad', word: 'spoofed', why: 'not in claude.com/crawling/bots.json' },
-    { ip: '192.0.2.44', claim: 'Safari/17.6', path: '/blog/', kind: 'person', word: 'person', why: 'loaded the page and its assets, arrived from chatgpt.com' },
+    { ip: '160.79.104.10', claim: 'Claude-User/1.0', path: '/docs/', kind: 'ok', word: 'verified', why: 'listed in claude.com/crawling/bots.json' },
+    { ip: '203.0.113.9', claim: 'ChatGPT-User/1.0', path: '/pricing/', kind: 'bad', word: 'spoofed', why: 'not listed in openai.com/chatgpt-user.json' },
+    { ip: '66.249.66.1', claim: 'Googlebot/2.1', path: '/sitemap.xml', kind: 'ok', word: 'verified', why: 'listed in Google’s googlebot.json' },
+    { ip: '198.51.100.23', claim: 'ClaudeBot/1.0', path: '/.env', kind: 'bad', word: 'spoofed', why: 'not listed in claude.com/crawling/bots.json' },
+    { ip: '192.0.2.44', claim: 'Safari/17.6', path: '/blog/', kind: 'person', word: 'person', why: 'a real browser that came from chatgpt.com' },
   ];
 
   /** What a JavaScript analytics tag sees, against what the log shows. */
   protected readonly compare: readonly { what: string; tag: string; log: string }[] = [
-    { what: 'People who load your pages', tag: 'yes, if they allow the script', log: 'yes, from the log, scanners left out' },
-    { what: 'ChatGPT, Claude and Perplexity reading a page for someone', tag: 'no, they run no JavaScript', log: 'yes, each one verified' },
-    { what: 'AI search indexing and training crawls', tag: 'no', log: 'yes, by vendor and purpose' },
-    { what: 'Bots pretending to be ChatGPT or Googlebot', tag: 'no', log: 'yes, called spoofed and left out' },
-    { what: 'Search Console clicks and position next to the log', tag: 'no', log: 'yes, the same weeks side by side' },
-    { what: 'Where your visitors’ data goes', tag: 'to the analytics vendor', log: 'nowhere: it runs on your machine' },
+    { what: 'People who load your pages', tag: 'Only when the script is allowed to run.', log: 'Yes. Scanners are left out.' },
+    { what: 'ChatGPT, Claude and Perplexity reading a page for someone', tag: 'No. They run no JavaScript.', log: 'Yes. Each one is verified.' },
+    { what: 'AI search indexing and training crawls', tag: 'No.', log: 'Yes. Split by vendor and purpose.' },
+    { what: 'Bots pretending to be ChatGPT or Googlebot', tag: 'No.', log: 'Yes. Marked spoofed and left out.' },
+    { what: 'Search Console clicks and position next to the log', tag: 'No.', log: 'Yes. Shown for the same weeks.' },
+    { what: 'Where your visitors’ data goes', tag: 'To the analytics vendor.', log: 'Nowhere. It stays on your machine.' },
   ];
 
   constructor() {
@@ -124,7 +124,7 @@ export class Home {
       });
     });
 
-    const description = 'Who read your site this week, was it good, and what to write next. Every crawler in your access log checked against the IP list its vendor publishes, so fake ChatGPT and Googlebot traffic is not counted. Runs on your machine.';
+    const description = 'See who really read your site this week. siteread checks every crawler in your access log against its vendor’s IP list. Fake ChatGPT and Googlebot traffic is not counted. It runs on your machine.';
     pageMeta({ title: 'siteread: who read your site this week', description, path: '/' });
     jsonLd('software', {
       '@type': 'SoftwareApplication',

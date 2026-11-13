@@ -25,7 +25,7 @@ describe('Home', () => {
       { label: 'siteread.dev', week: '2026-W42', metrics: { people: { value: 14 } } },
       { label: 'synacl.com', week: '2026-W42', metrics: { people: { value: 223 } } },
     ] }) });
-    expect(text(el.querySelector('#real-week')!)).toBe('One real week, in the open');
+    expect(text(el.querySelector('#real-week')!)).toBe('A real week from a named site');
     expect(text(el.querySelector('app-spotlight .spot-name')!)).toBe('synacl.com');
   });
 
@@ -36,7 +36,7 @@ describe('Home', () => {
     const items = [...el.querySelectorAll('.moat-item')].map(text);
     expect(items.length).toBe(4);
     expect(items[0]).toContain('13 vendor IP lists');
-    expect(items[1]).toContain("synacl.com's access log showed 184 verified AI agent fetches");
+    expect(items[1]).toContain('synacl.com logged 184 verified AI agent fetches');
     expect(items[3]).toContain('4 sites sharing');
     expect(el.textContent).not.toMatch(/\b(only|first) (tool|one)\b/i);
   });
@@ -45,7 +45,7 @@ describe('Home', () => {
     const el = await render({ ok: false });
     const items = [...el.querySelectorAll('.moat-item')].map(text);
     expect(items.length).toBe(4);
-    expect(items[3]).toContain('open benchmark A benchmark');
+    expect(items[3]).toContain('free public data An open benchmark Sites share');
   });
 
   it('leaves the real week out when the service did not answer', async () => {
