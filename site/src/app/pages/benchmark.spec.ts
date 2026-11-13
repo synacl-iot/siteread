@@ -28,7 +28,7 @@ describe('BenchmarkPage', () => {
   it('prints n, the quartiles and the named row in the HTML', async () => {
     const el = await render({ ok: true, data: sample() });
     expect(text(el.querySelector('.bench-meta')!)).toBe(
-      "14 anonymous sites + synacl.com · each site's latest share, 2026-W39 to 2026-W42 · built 2026-10-22 09:00 UTC");
+      '14 anonymous sites + synacl.com · latest share per site from 2026-W39 to 2026-W42 · built 2026-10-22 09:00 UTC');
     const people = el.querySelector('.metrics tbody tr')!;
     expect(text(people)).toContain('41 · 118 · 356');
     expect(text(people)).toContain('synacl.com 96 · 44th');
@@ -74,7 +74,7 @@ describe('BenchmarkPage', () => {
       ],
     }) });
     expect(text(el.querySelector('.bench-meta')!)).toContain('14 anonymous sites + synacl.com and siteread.dev');
-    expect(text(el.querySelector('.bench-intro')!)).toContain('2 sites are named');
+    expect(text(el.querySelector('.bench-intro')!)).toContain('2 sites share under their own names');
     const people = el.querySelector('.metrics tbody tr')!;
     expect(people.querySelectorAll('.marker').length).toBe(1);
     expect(text(people)).toContain('synacl.com 96 · 44th');
@@ -102,5 +102,37 @@ describe('BenchmarkPage', () => {
   it('does not fetch again when the browser fetched the numbers itself', async () => {
     await mount({ ok: true, data: sample() });
     TestBed.inject(HttpTestingController).expectNone(`${PUBLIC_API}/v1/benchmark.json`);
+  });
+
+  it('leads with each named site’s week: figures, the stale week, bars with their numbers in text', async () => {
+    const el = await render({ ok: true, data: sample({ sites: 2, metrics: { people: { about: '', lowerIsBetter: false, sites: 2 } }, window: { from: '2026-W43', to: '2026-W46' }, named: [
+      { label: 'synacl.com', week: '2026-W44', metrics: { people: { value: 223 }, peopleFromSearch: { value: 41 }, aiAnswerFetches: { value: 36 } } },
+    ] }) });
+    const spot = el.querySelector('app-spotlight')!;
+    expect(text(spot.querySelector('.spot-week')!)).toBe('week 2026-W44 · last share');
+    expect(text(spot.querySelector('.tiles')!)).toContain('People 223');
+    const bar = spot.querySelector('.seg-bar')!;
+    expect(bar.getAttribute('aria-label')).toContain('Search 41 (18 %)');
+    expect(bar.querySelectorAll('.seg').length).toBe(2);
+    expect(el.querySelector('.meter')!.getAttribute('aria-label')).toBe('2 of 10 anonymous sites so far');
+  });
+
+  it('while early, each row draws the named sites as bars with their numbers, and ratios get their own cards', async () => {
+    const el = await render({ ok: true, data: sample({ sites: 2, metrics: { people: { about: '', lowerIsBetter: false, sites: 2 } }, named: [
+      { label: 'synacl.com', week: '2026-W42', metrics: { people: { value: 223 }, peopleFromAi: { value: 14 } } },
+    ] }) });
+    const row = el.querySelector('.metrics tbody tr')!;
+    expect(text(row.querySelector('.compare-cell')!)).toBe('synacl.com 223');
+    expect(row.querySelector('.hbar')!.getAttribute('title')).toBe('synacl.com: 223');
+    expect(row.querySelectorAll('.named').length).toBe(0);
+    expect([...el.querySelectorAll('.ratio h3')].map(text)).toContain('People from AI assistants');
+    expect(text(el.querySelector('.kpis')!)).toContain('2 / 10');
+  });
+
+  it('puts a canonical link and Dataset data in the head', async () => {
+    await render({ ok: true, data: sample() });
+    expect(document.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe('https://siteread.dev/benchmark');
+    const ld = JSON.parse(document.head.querySelector('script[data-ld="dataset"]')!.textContent!);
+    expect(ld['@type']).toBe('Dataset');
   });
 });

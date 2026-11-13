@@ -40,6 +40,26 @@ cap is spent, stop and say so.
     footer credits the maker.
   - The Synacl workspace names under "History" below, and the "Port by copying" rule, mention `iotoneweb` in a
     public file. Flagged 2026-10-22, left for the owner.
+- Site pages, 2026-11-13 (the owner asked for a richer home and benchmark): the home page resolves the same
+  benchmark snapshot as `/benchmark` and shows the busiest named site's latest week (`app-spotlight`,
+  `site/src/app/benchmark/spotlight.ts`); it also has a checked-log panel, a "what a JavaScript tag never sees"
+  table, privacy cards, the two newest posts and an FAQ. The benchmark leads with the named sites' weeks while
+  anonymous sites are under `minSites`, with a meter toward it. Every public page sets its canonical link through
+  `pageMeta` in `seo.ts`, and structured data through `jsonLd` (SoftwareApplication and FAQPage on home, Dataset on
+  the benchmark). The FAQ text lives once, in `pages/home.ts`, for both the page and its FAQPage data. The hero's
+  log lines use documentation IPs or a vendor's own published ranges only. Segment colors are the `--s1..--s3`
+  and `--s-other` tokens in `styles.css`, checked for color-vision separation in both modes.
+  Same day, second pass (owner: "more graphs and numbers", "show the moat"): a "Why siteread" band under the hero,
+  one number per point, only claims true today (13 vendor IP lists for 15 crawlers, no tag, no IPs sent, the open
+  benchmark); never an "only" or "first" claim. The moat's list count mirrors `packages/verify/src/ip-ranges.js`
+  `SOURCES`: update both together. The benchmark adds headline counts, ratio cards worked out from each named
+  site's own numbers (`ratios()` in `benchmark/view.ts`: nothing estimated), per-row bars comparing the named
+  sites while early, and in each spotlight a "who crawled more" bar and a Search Console funnel. Every bar has
+  its number printed as text and a `title`.
+  Copy style (owner, 2026-11-13: "human and clear cut, not poetry with a comma in between"): one idea per
+  sentence, subject, verb, object. No comma-joined fragments, no colons or semicolons for effect, no taglines
+  like "verified, not guessed". Labels are plain phrases. The memo example on the home page is the skill's real
+  output, so it keeps the skill's style.
 - The weekly cap in `CHARTER.md` applies since the initial release (2026-10-22). It is real: log the week's spend
   in its table, stop when spent, and say so.
 - History before this repo existed lives in the Synacl workspace's memory (`project_siteread_side_tool`,

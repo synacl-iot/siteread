@@ -1,5 +1,5 @@
-import { Benchmark } from '../api';
-import { benchmarkView, namedSentence, niceCeil, ordinal, rowView, utcMinute } from './view';
+import { Benchmark, NamedRow } from '../api';
+import { benchmarkView, kpis, namedSentence, niceCeil, ordinal, ratios, rowView, spotlight, spotlights, utcMinute } from './view';
 
 const metric = (sites: number, q?: [number, number, number], lowerIsBetter = false) => ({
   about: 'x', lowerIsBetter, sites, ...(q ? { p25: q[0], p50: q[1], p75: q[2] } : {}),
@@ -77,9 +77,9 @@ describe('benchmarkView', () => {
     expect(v.groups.map(g => g.rows.map(r => r.key))).toEqual([['people'], ['aiSpoofedPct'], ['gscClicks']]);
     expect(v.early).toBe(false);
     expect(v.named).toEqual([{ label: 'synacl.com', week: '2026-W42' }]);
-    expect(v.namedText).toBe("synacl.com (the site siteread was first built to read) is the one named site, by its owner's choice.");
+    expect(v.namedText).toBe('synacl.com (the site siteread was first built to read) shares under its own name.');
     expect(v.namedLabels).toBe('synacl.com');
-    expect(v.windowText).toBe("each site's latest share, 2026-W39 to 2026-W42");
+    expect(v.windowText).toBe('latest share per site from 2026-W39 to 2026-W42');
     expect(v.builtText).toBe('built 2026-10-22 09:00 UTC');
     expect(v.history).toEqual([
       { label: 'W41', week: '2026-W41', sites: 12, pct: 80 },
@@ -117,8 +117,8 @@ describe('several named sites', () => {
 
   it('names them in one sentence, each with its note', () => {
     expect(namedSentence(['synacl.com', 'siteread.dev'])).toBe(
-      "2 sites are named, by their owner's choice: synacl.com (the site siteread was first built to read) and siteread.dev (this site, read by siteread itself).");
-    expect(namedSentence(['a.example', 'b.example', 'c.example'])).toBe("3 sites are named, by their owner's choice: a.example, b.example and c.example.");
+      '2 sites share under their own names. They are synacl.com (the site siteread was first built to read) and siteread.dev (siteread’s own site).');
+    expect(namedSentence(['a.example', 'b.example', 'c.example'])).toBe('3 sites share under their own names. They are a.example, b.example and c.example.');
   });
 
   it('gives each its own cell and marker, and a site with no share yet says so', () => {
@@ -137,5 +137,98 @@ describe('several named sites', () => {
     ]);
     expect(r.hiText).toBe('1,200');
     expect(r.named.map(c => c.marker)).toEqual([8, 75]);
+  });
+});
+
+describe('spotlight', () => {
+  // synacl.com's week 2026-W44 as the service published it.
+  const synacl = {
+    label: 'synacl.com', week: '2026-W44', metrics: {
+      people: { value: 223 }, peopleFromSearch: { value: 41 }, peopleFromAi: { value: 14 }, peopleFromSocial: { value: 4 },
+      aiAnswerFetches: { value: 36 }, aiSearchFetches: { value: 184 }, aiTrainingFetches: { value: 155 },
+      searchEngineFetches: { value: 237 }, aiSpoofedPct: { value: 13.3 },
+      gscImpressions: { value: 1228 }, gscClicks: { value: 38 }, gscCtrPct: { value: 3.1 }, gscPosition: { value: 7.5 },
+    },
+  };
+
+  it('headline figures, the people split with the rest as direct and other, and the AI split', () => {
+    const s = spotlight(synacl, '2026-W46')!;
+    expect(s.stale).toBe(true);
+    expect(s.about).toBe('the site siteread was first built to read');
+    expect(s.tiles.map(t => `${t.label} ${t.value}`)).toEqual(
+      ['People 223', 'AI agent fetches 375', 'Search clicks 38', 'Spoofed AI traffic 13.3 %']);
+    expect(s.people!.segments.map(g => [g.key, g.value, g.pct])).toEqual(
+      [['search', 41, 18], ['ai', 14, 6], ['social', 4, 2], ['other', 164, 74]]);
+    expect(s.ai!.segments.map(g => [g.key, g.value, g.pct])).toEqual(
+      [['answer', 36, 10], ['search', 184, 49], ['training', 155, 41]]);
+    expect(s.people!.label).toContain('Search 41 (18 %)');
+  });
+
+  it('leaves out empty parts and bars, and uses crawler fetches when there is no Search Console', () => {
+    const s = spotlight({ label: 'siteread.dev', week: '2026-W46', metrics: {
+      people: { value: 14 }, peopleFromSearch: { value: 0 }, peopleFromAi: { value: 0 }, peopleFromSocial: { value: 0 },
+      aiAnswerFetches: { value: 0 }, aiSearchFetches: { value: 0 }, aiTrainingFetches: { value: 2 },
+      searchEngineFetches: { value: 15 }, aiSpoofedPct: { value: 0.5 },
+    } }, '2026-W46')!;
+    expect(s.stale).toBe(false);
+    expect(s.tiles.map(t => t.label)).toContain('Search crawler fetches');
+    expect(s.people!.segments.map(g => g.key)).toEqual(['other']);
+    expect(s.ai!.segments.map(g => g.key)).toEqual(['training']);
+    expect(spotlight({ label: 'x', week: '2026-W46', metrics: {} }, null)).toEqual(
+      { label: 'x', about: '', week: '2026-W46', stale: false, tiles: [], people: null, ai: null, crawl: null, search: null, spoofedPct: null });
+  });
+
+  it('who crawled more, and the search funnel from impressions to clicks', () => {
+    const s = spotlight(synacl, '2026-W46')!;
+    expect(s.crawl!.segments.map(g => [g.key, g.value, g.pct])).toEqual([['ai', 375, 61], ['engines', 237, 39]]);
+    expect(s.search).toEqual({
+      impressions: '1,228', clicks: '38', clickPct: 3.1, ctr: '3.1 %', position: '7.5',
+      label: "synacl.com's search: 1,228 impressions, 38 clicks, 3.1 % click-through, average position 7.5",
+    });
+    expect(s.spoofedPct).toBe(13.3);
+  });
+
+  it('ratios per named site, worked out from its own numbers', () => {
+    const b = sample({ named: [synacl, { label: 'quiet.dev', week: null, metrics: {} }] });
+    const r = Object.fromEntries(ratios(b).map(x => [x.key, x.rows.map(y => y.text)]));
+    expect(r).toEqual({
+      fromSearch: ['18.4 %'], fromAi: ['6.3 %'], aiPerPerson: ['1.7 ×'], aiVsSearch: ['1.6 ×'],
+      answerShare: ['9.6 %'], spoofed: ['13.3 %'], ctr: ['3.1 %'],
+    });
+    expect(ratios(sample({ named: [] }))).toEqual([]);
+  });
+
+  it('headline counts sum the named sites’ latest weeks', () => {
+    const k = kpis(sample({ sites: 0, named: [synacl, { label: 'small.dev', week: '2026-W46', metrics: { people: { value: 14 }, aiTrainingFetches: { value: 2 } } }] }));
+    expect(k.map(x => `${x.value} ${x.label}`)).toEqual([
+      '0 / 10 anonymous sites so far', '2 named sites sharing',
+      '237 people in the named sites’ latest weeks', '377 verified AI agent fetches in those weeks', '2 weeks on record',
+    ]);
+  });
+
+  it('early rows compare the named sites on one bar scale; a percentage stays out of 100', () => {
+    const two: NamedRow[] = [
+      { label: 'a', week: 'w', metrics: { people: { value: 50 }, aiSpoofedPct: { value: 13.3 } } },
+      { label: 'b', week: 'w', metrics: { people: { value: 200 } } },
+    ];
+    expect(rowView({ key: 'people', label: '', about: '' }, metric(2), 10, two).bars).toEqual(
+      [{ label: 'a', text: '50', pct: 25 }, { label: 'b', text: '200', pct: 100 }]);
+    expect(rowView({ key: 'aiSpoofedPct', label: '', about: '', unit: '%' }, metric(2), 10, two).bars).toEqual(
+      [{ label: 'a', text: '13.3 %', pct: 13.3 }]);
+  });
+
+  it('a site that has not shared has no spotlight; the busiest site leads', () => {
+    expect(spotlight({ label: 'x', week: null, metrics: {} }, '2026-W46')).toBeNull();
+    const order = spotlights(sample({ named: [
+      { label: 'small.dev', week: '2026-W42', metrics: { people: { value: 5 } } },
+      synacl,
+      { label: 'quiet.dev', week: null, metrics: {} },
+    ] })).map(s => s.label);
+    expect(order).toEqual(['synacl.com', 'small.dev']);
+  });
+
+  it('the meter fills to the share of minSites, never past it', () => {
+    expect(benchmarkView(sample({ sites: 3 })).progressPct).toBe(30);
+    expect(benchmarkView(sample()).progressPct).toBe(100);
   });
 });

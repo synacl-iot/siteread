@@ -10,7 +10,11 @@ import { PostChatgptWeek } from './pages/post-chatgpt-week';
 import { CHATGPT_WEEK, LAUNCH } from './pages/posts';
 
 export const routes: Routes = [
-  { path: '', component: Home, title: 'siteread: who read your site this week' },
+  {
+    path: '', component: Home, title: 'siteread: who read your site this week',
+    // The same numbers as the benchmark page, for the home page's real week.
+    resolve: { benchmark: benchmarkResolver },
+  },
   {
     path: 'benchmark', component: BenchmarkPage, title: 'How sites compare · siteread',
     resolve: { benchmark: benchmarkResolver },

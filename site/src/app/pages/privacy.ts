@@ -1,6 +1,6 @@
-import { Component, inject } from '@angular/core';
-import { Meta } from '@angular/platform-browser';
+import { Component } from '@angular/core';
 import { VERSION } from '../generated/docs';
+import { pageMeta } from '../seo';
 
 @Component({
   selector: 'app-privacy',
@@ -23,9 +23,10 @@ export class Privacy {
   }, null, 2);
 
   constructor() {
-    inject(Meta).updateTag({
-      name: 'description',
-      content: 'What siteread sends, and what it never does: no hostnames, URLs or visitor IPs leave your machine. A share is a week of totals, sent only on a yes.',
+    pageMeta({
+      title: 'What siteread sends · siteread',
+      description: 'What siteread sends, and what it never does: no hostnames, URLs or visitor IPs leave your machine. A share is a week of totals, sent only on a yes.',
+      path: '/privacy',
     });
   }
 }
